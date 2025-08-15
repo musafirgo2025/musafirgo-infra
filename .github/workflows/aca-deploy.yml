@@ -1,0 +1,48 @@
+name: ACA Dev Deploy (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      imageRef:
+        description: 'Image à déployer (ex: musafirgoacr.azurecr.io/musafirgo-itinerary-service:<tag>)'
+        required: true
+        type: string
+
+jobs:
+  deploy-aca:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      RG: musafirgo-dev-rg
+      LOCATION: westeurope
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id:  ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Ensure RG
+        run: az group create -n $RG -l $LOCATION
+
+      - name: What-if
+        run: |
+          az deployment group what-if \
+            -g $RG \
+            --template-file dev/iac/aca-dev.bicep \
+            --parameters @dev/iac/aca-dev.parameters.json \
+            --parameters containerImage="${{ inputs.imageRef }}"
+
+      - name: Deploy
+        run: |
+          az deployment group create \
+            -g $RG \
+            --template-file dev/iac/aca-dev.bicep \
+            --parameters @dev/iac/aca-dev.parameters.json \
+            --parameters containerImage="${{ inputs.imageRef }}"

@@ -2,13 +2,15 @@ version: "3.8"
 
 services:
   itinerary-service:
-    image: musafirgo2025/itinerary-service:latest
+    image: ${ITINERARY_IMAGE:-ghcr.io/musafirgo/musafirgo-itinerary-service:latest}
     container_name: itinerary-service
     ports:
-      - "8080:8080"
+      - "8081:8081"
+    environment:
+      - JAVA_OPTS=${JAVA_OPTS:--XX:+UseG1GC -XX:MaxRAMPercentage=75}
+    restart: unless-stopped
     networks:
       - musafirgo-net
-    restart: unless-stopped
 
 networks:
   musafirgo-net:
