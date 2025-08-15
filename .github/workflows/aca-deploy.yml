@@ -1,11 +1,22 @@
+# musafirgo-infra/.github/workflows/aca-deploy.yml
 name: ACA Dev Deploy (Reusable)
 
 on:
   workflow_call:
     inputs:
       imageRef:
-        description: 'Image à déployer (ex: musafirgoacr.azurecr.io/musafirgo-itinerary-service:<tag>)'
+        description: "Image à déployer (ex: musafirgoacr.azurecr.io/musafirgo-itinerary-service:<tag>)"
         required: true
+        type: string
+      resourceGroup:
+        description: "Resource Group cible"
+        required: false
+        default: "musafirgo-dev-rg"
+        type: string
+      location:
+        description: "Azure region"
+        required: false
+        default: "westeurope"
         type: string
 
 jobs:
@@ -15,11 +26,23 @@ jobs:
       id-token: write
       contents: read
     env:
-      RG: musafirgo-dev-rg
-      LOCATION: westeurope
+      RG: ${{ inputs.resourceGroup }}
+      LOCATION: ${{ inputs.location }}
+      DEPLOY_NAME: aca-dev
 
     steps:
       - uses: actions/checkout@v4
+
+      # Sanity check: les secrets doivent venir du repo appelant (secrets: inherit)
+      - name: Check required secrets presence
+        env:
+          CI_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          SUB_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          [ -z "$CI_ID" ] && echo "Missing AZURE_CLIENT_ID" && exit 1 || echo "AZURE_CLIENT_ID ✓"
+          [ -z "$TENANT_ID" ] && echo "Missing AZURE_TENANT_ID" && exit 1 || echo "AZURE_TENANT_ID ✓"
+          [ -z "$SUB_ID" ] && echo "Missing AZURE_SUBSCRIPTION_ID" && exit 1 || echo "AZURE_SUBSCRIPTION_ID ✓"
 
       - name: Azure Login (OIDC)
         uses: azure/login@v2
@@ -28,21 +51,29 @@ jobs:
           tenant-id:  ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Ensure RG
-        run: az group create -n $RG -l $LOCATION
+      - name: Ensure Resource Group
+        run: az group create -n "$RG" -l "$LOCATION"
 
-      - name: What-if
+      - name: What-if (Bicep)
         run: |
           az deployment group what-if \
-            -g $RG \
+            --name "$DEPLOY_NAME" \
+            --resource-group "$RG" \
             --template-file dev/iac/aca-dev.bicep \
             --parameters @dev/iac/aca-dev.parameters.json \
             --parameters containerImage="${{ inputs.imageRef }}"
 
-      - name: Deploy
+      - name: Deploy (Bicep)
         run: |
           az deployment group create \
-            -g $RG \
+            --name "$DEPLOY_NAME" \
+            --resource-group "$RG" \
             --template-file dev/iac/aca-dev.bicep \
             --parameters @dev/iac/aca-dev.parameters.json \
             --parameters containerImage="${{ inputs.imageRef }}"
+
+      # Optionnel : afficher l'URL publique (via outputs du déploiement)
+      - name: Show Container App FQDN
+        run: |
+          FQDN=$(az deployment group show -g "$RG" -n "$DEPLOY_NAME" --query "properties.outputs.containerAppFqdn.value" -o tsv || true)
+          echo "Container App URL: https://${FQDN}"
