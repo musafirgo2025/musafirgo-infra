@@ -115,15 +115,23 @@ jobs:
             --parameters @dev/iac/aca-dev.parameters.json \
             --parameters containerImage="${{ steps.img.outputs.image }}"
 
-      - name: Deploy (compiled JSON) - async
+      - name: Deploy (compiled JSON) via ARM REST
+        env:
+          SUB_ID: ${{ steps.ids.outputs.sub_id }}
         run: |
-          az deployment group create \
-            --name "$DEPLOY_NAME" \
-            --resource-group "$RG" \
-            --template-file dev/iac/aca-dev.compiled.json \
-            --parameters @dev/iac/aca-dev.parameters.json \
-            --parameters containerImage="${{ steps.img.outputs.image }}" \
-            --no-wait
+          set -e
+          TEMPLATE_JSON=$(jq -c '.' dev/iac/aca-dev.compiled.json)
+          PARAMS_OBJ=$(jq -c --arg img "${{ steps.img.outputs.image }}" '.parameters.containerImage.value=$img | .parameters' dev/iac/aca-dev.parameters.json)
+          BODY=$(jq -n \
+            --arg mode "Incremental" \
+            --argjson template "$TEMPLATE_JSON" \
+            --argjson parameters "$PARAMS_OBJ" \
+            '{properties:{mode:$mode, template:$template, parameters:$parameters}}')
+          az rest \
+            --method PUT \
+            --url "https://management.azure.com/subscriptions/${SUB_ID}/resourcegroups/${RG}/providers/Microsoft.Resources/deployments/${DEPLOY_NAME}?api-version=2022-09-01" \
+            --body "$BODY" \
+            --headers "Content-Type=application/json"
 
       - name: Wait for deployment completion & show outputs
         run: |
@@ -131,9 +139,7 @@ jobs:
           for i in {1..60}; do
             state=$(az deployment group show -g "$RG" -n "$DEPLOY_NAME" --query "properties.provisioningState" -o tsv 2>/dev/null || echo "Pending")
             echo "ProvisioningState=$state (try $i/60)"
-            if [ "$state" = "Succeeded" ]; then
-              break
-            fi
+            if [ "$state" = "Succeeded" ]; then break; fi
             if [ "$state" = "Failed" ] || [ "$state" = "Canceled" ]; then
               echo "Deployment $state"
               az deployment group show -g "$RG" -n "$DEPLOY_NAME" -o jsonc || true
