@@ -55,7 +55,14 @@ jobs:
       DEPLOY_NAME: aca-dev
 
     steps:
-      - uses: actions/checkout@v4
+      # IMPORTANT: quand ce workflow est appelé depuis un autre repo,
+      # on doit *explicitement* récupérer les fichiers d'infra.
+      - name: Checkout infra repo (this workflow's files)
+        uses: actions/checkout@v4
+        with:
+          repository: musafirgo2025/musafirgo-infra
+          ref: main
+          path: infra
 
       - name: Resolve imageRef
         id: img
@@ -93,30 +100,40 @@ jobs:
           tenant-id:  ${{ steps.ids.outputs.tenant_id }}
           subscription-id: ${{ steps.ids.outputs.sub_id }}
 
+      - name: Ensure resource providers (idempotent)
+        shell: bash
+        run: |
+          for p in Microsoft.ManagedIdentity Microsoft.App Microsoft.ContainerRegistry Microsoft.OperationalInsights Microsoft.Authorization; do
+            state=$(az provider show -n $p --query registrationState -o tsv 2>/dev/null || echo NotRegistered)
+            if [ "$state" != "Registered" ]; then
+              echo "Register $p…"
+              az provider register -n $p --wait
+            fi
+            az provider show -n $p -o table
+          done
+
       - name: Ensure Resource Group
         run: az group create -n "$RG" -l "$LOCATION" || echo "RG exists"
 
-      - name: Ensure resource providers (idempotent)
+      - name: Ensure jq (if missing)
+        shell: bash
         run: |
-          for p in Microsoft.ManagedIdentity Microsoft.App Microsoft.ContainerRegistry Microsoft.OperationalInsights Microsoft.Authorization; do
-          state=$(az provider show -n $p --query registrationState -o tsv 2>/dev/null || echo NotRegistered)
-          if [ "$state" != "Registered" ]; then
-           echo "Register $p…"
-           az provider register -n $p --wait
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt-get update -y
+            sudo apt-get install -y jq
           fi
-          az provider show -n $p -o table
-          done
-          
-          
-          # ===== Workaround: compiler Bicep -> JSON et déployer via ARM REST =====
+
+      # ===== Workaround fiable: compiler Bicep -> JSON et déployer via ARM REST =====
 
       - name: Build Bicep to JSON
+        working-directory: infra
         run: |
           az bicep install
           az bicep build --file dev/iac/aca-dev.bicep --outfile dev/iac/aca-dev.compiled.json
           ls -l dev/iac/aca-dev.compiled.json
 
       - name: What-if (compiled JSON)
+        working-directory: infra
         run: |
           az deployment group what-if \
             --name "$DEPLOY_NAME" \
@@ -126,11 +143,11 @@ jobs:
             --parameters containerImage="${{ steps.img.outputs.image }}"
 
       - name: Deploy (compiled JSON) via ARM REST
+        working-directory: infra
         env:
           SUB_ID: ${{ steps.ids.outputs.sub_id }}
         run: |
           set -e
-          # Construit le body du déploiement (mode=Incremental)
           TEMPLATE_JSON=$(jq -c '.' dev/iac/aca-dev.compiled.json)
           PARAMS_OBJ=$(jq -c --arg img "${{ steps.img.outputs.image }}" '.parameters.containerImage.value=$img | .parameters' dev/iac/aca-dev.parameters.json)
           BODY=$(jq -n \
@@ -146,6 +163,7 @@ jobs:
             --headers "Content-Type=application/json"
 
       - name: Wait for deployment completion & show outputs
+        shell: bash
         run: |
           set -e
           for i in {1..60}; do
@@ -159,6 +177,7 @@ jobs:
             fi
             sleep 10
           done
+
           FQDN=$(az deployment group show -g "$RG" -n "$DEPLOY_NAME" --query "properties.outputs.containerAppFqdn.value" -o tsv || true)
           if [ -n "$FQDN" ]; then
             echo "Container App URL: https://${FQDN}"
