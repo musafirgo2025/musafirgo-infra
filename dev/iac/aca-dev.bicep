@@ -11,8 +11,8 @@ param appName string = 'itinerary'
 @description('Image complète à déployer (ex: musafirgoacr.azurecr.io/musafirgo-itinerary-service:<tag>)')
 param containerImage string
 
-@description('CPU pour le conteneur (0.25/0.5/1/2)')
-param cpu number = 0.5
+@description('CPU vCores (ex: "0.5", "1", "2"). Type string car Bicep ne supporte pas les floats.')
+param cpu string = '0.5'
 
 @description('RAM pour le conteneur (0.5Gi/1Gi/2Gi/4Gi)')
 param memory string = '1Gi'
@@ -44,14 +44,14 @@ resource cae 'Microsoft.App/managedEnvironments@2024-02-02-preview' = {
   }
 }
 
-// 3) Azure Container Registry (pas de compte admin)
+// 3) Azure Container Registry (compte admin désactivé)
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   name: '${prefix}acr'
   location: location
   sku: { name: 'Basic' }
   properties: {
     adminUserEnabled: false
-    anonymousPullEnabled: false
+    // anonymousPullEnabled supprimé (non supporté par cette version d’API)
   }
 }
 
@@ -66,7 +66,10 @@ resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(acr.id, 'acrpull', uami.id)
   scope: acr
   properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d') // AcrPull
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      '7f951dda-4ed3-4680-a7ca-43fe172d538d' // AcrPull
+    )
     principalId: uami.properties.principalId
     principalType: 'ServicePrincipal'
   }
@@ -89,12 +92,17 @@ resource app 'Microsoft.App/containerApps@2024-02-02-preview' = {
         external: true
         targetPort: 8081
         transport: 'auto'
-        traffic: [ { latestRevision: true, weight: 100 } ]
+        traffic: [
+          {
+            latestRevision: true
+            weight: 100
+          }
+        ]
       }
       registries: [
         {
           server: acr.properties.loginServer
-          identity: uami.id // pas de secret: ID managée
+          identity: uami.id // pas de secret: utilisation de l’ID managée
         }
       ]
       secrets: []
@@ -121,7 +129,11 @@ resource app 'Microsoft.App/containerApps@2024-02-02-preview' = {
               periodSeconds: 10
             }
           ]
-          resources: { cpu: cpu, memory: memory }
+          resources: {
+            // cpu est une string → json(cpu) la convertit en nombre pour l’API
+            cpu: json(cpu)
+            memory: memory
+          }
         }
       ]
       scale: { minReplicas: 1, maxReplicas: 3 }

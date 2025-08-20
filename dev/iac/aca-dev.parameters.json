@@ -6,7 +6,7 @@
     "location": { "value": "westeurope" },
     "appName": { "value": "itinerary" },
     "containerImage": { "value": "" },
-    "cpu": { "value": 0.5 },
+    "cpu": { "value": "0.5" },
     "memory": { "value": "1Gi" }
   }
 }
