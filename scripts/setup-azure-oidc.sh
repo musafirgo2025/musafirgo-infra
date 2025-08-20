@@ -32,9 +32,9 @@ log "Contexte courant : $(az account show --query '{sub:id,tenant:tenantId,name:
 
 # Providers utiles
 log "Enregistrement des providers nécessaires (idempotent)…"
-az provider register -n Microsoft.Authorization --subscription "$SUB_ID" --wait >/dev/null 2>&1 || true
-az provider register -n Microsoft.App            --subscription "$SUB_ID" --wait >/dev/null 2>&1 || true
-az provider register -n Microsoft.ContainerRegistry --subscription "$SUB_ID" --wait >/dev/null 2>&1 || true
+az provider register -n Microsoft.Authorization       --subscription "$SUB_ID" --wait >/dev/null 2>&1 || true
+az provider register -n Microsoft.App                 --subscription "$SUB_ID" --wait >/dev/null 2>&1 || true
+az provider register -n Microsoft.ContainerRegistry   --subscription "$SUB_ID" --wait >/dev/null 2>&1 || true
 az provider register -n Microsoft.OperationalInsights --subscription "$SUB_ID" --wait >/dev/null 2>&1 || true
 
 # --- App + SP

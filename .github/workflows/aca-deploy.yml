@@ -17,7 +17,7 @@ on:
         required: false
         default: "westeurope"
         type: string
-  workflow_dispatch:        # permet de lancer depuis musafirgo-infra même sans secrets
+  workflow_dispatch:          # permet de lancer depuis ce repo même sans secrets
     inputs:
       imageRef:
         description: "Image à déployer (ex: musafirgoacr.azurecr.io/musafirgo-itinerary-service:bootstrap)"
@@ -57,8 +57,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Résout les identifiants Azure: d'abord depuis les secrets (cas reusable),
-      # sinon depuis les inputs (cas workflow_dispatch lancé à la main).
+      # Résout l'image (compatible workflow_call & workflow_dispatch)
+      - name: Resolve imageRef
+        id: img
+        shell: bash
+        run: |
+          IMG="${{ inputs.imageRef }}"
+          if [ -z "$IMG" ]; then IMG="${{ github.event.inputs.imageRef }}"; fi
+          echo "image=$IMG" >> "$GITHUB_OUTPUT"
+          echo "Using image: $IMG"
+
+      # Résout les identifiants Azure :
+      # 1) depuis les secrets (cas reusable via 'secrets: inherit'),
+      # 2) sinon depuis les inputs (cas workflow_dispatch manuel).
       - name: Resolve Azure IDs
         id: ids
         shell: bash
@@ -73,8 +84,8 @@ jobs:
           echo "tenant_id=$TID" >> $GITHUB_OUTPUT
           echo "sub_id=$SID" >> $GITHUB_OUTPUT
           if [ -z "$CID" ] || [ -z "$TID" ] || [ -z "$SID" ]; then
-            echo "Missing Azure IDs. Provide repo secrets (AZURE_CLIENT_ID / AZURE_TENANT_ID / AZURE_SUBSCRIPTION_ID)"
-            echo "or fill inputs (clientId / tenantId / subscriptionId) when using workflow_dispatch."
+            echo "::error::Missing Azure IDs. Provide repo secrets (AZURE_CLIENT_ID / AZURE_TENANT_ID / AZURE_SUBSCRIPTION_ID)"
+            echo "::error::or fill inputs (clientId / tenantId / subscriptionId) when using workflow_dispatch."
             exit 1
           fi
           echo "Azure IDs resolved ✓"
@@ -96,7 +107,7 @@ jobs:
             --resource-group "$RG" \
             --template-file dev/iac/aca-dev.bicep \
             --parameters @dev/iac/aca-dev.parameters.json \
-            --parameters containerImage="${{ inputs.imageRef || github.event.inputs.imageRef }}"
+            --parameters containerImage="${{ steps.img.outputs.image }}"
 
       - name: Deploy (Bicep)
         run: |
@@ -105,7 +116,7 @@ jobs:
             --resource-group "$RG" \
             --template-file dev/iac/aca-dev.bicep \
             --parameters @dev/iac/aca-dev.parameters.json \
-            --parameters containerImage="${{ inputs.imageRef || github.event.inputs.imageRef }}"
+            --parameters containerImage="${{ steps.img.outputs.image }}"
 
       - name: Show Container App FQDN
         run: |

@@ -44,7 +44,7 @@ az rest \
   --body "$BODY" \
   --headers "Content-Type=application/json"
 
-echo '==> Verify assignments'
+echo '==> Verify assignments (best-effort)'
 az role assignment list --subscription "$SUB_ID" --assignee "$APP_ID" --scope "$RG_ID" -o table || true
 
 echo "✅ Done."
