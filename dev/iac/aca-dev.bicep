@@ -10,13 +10,13 @@ param location string = 'westeurope'
 @description('Logical app name (microservice)')
 param appName string = 'itinerary'
 
-@description('Full image reference (e.g. musafirgoacr.azurecr.io/musafirgo-itinerary-service:<tag>). Leave empty to bootstrap with a public image.')
+@description('Full image reference (e.g. musafirgoacr.azurecr.io/musafirgo-itinerary-service:tag). Leave empty to bootstrap with a public image.')
 param containerImage string
 
-@description('CPU vCores as string (floats not natively supported). E.g. ''0.5'', ''1'', ''2''')
+@description('CPU vCores as string. Examples: 0.5, 1, 2')
 param cpu string = '0.5'
 
-@description('Container memory (e.g. 0.5Gi/1Gi/2Gi/4Gi)')
+@description('Container memory (e.g. 0.5Gi, 1Gi, 2Gi, 4Gi)')
 param memory string = '1Gi'
 
 // ---------------- Vars ----------------
@@ -80,12 +80,11 @@ resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
-// 6) Container App (public ingress; waits explicitly for AcrPull)
+// 6) Container App (public ingress; wait explicitly for AcrPull)
 resource app 'Microsoft.App/containerApps@2024-02-02-preview' = {
   name: '${base}-app'
   location: location
 
-  // Force order: ensure AcrPull role assignment is in place
   dependsOn: [
     acrPull
   ]
