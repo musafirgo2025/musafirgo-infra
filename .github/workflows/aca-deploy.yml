@@ -103,8 +103,8 @@ jobs:
       - name: Build Bicep to JSON (workaround)
         run: |
           az bicep install
-          az bicep build --file dev/iac/aca-dev.bicep --out-file dev/iac/aca-dev.compiled.json
-          echo "Bicep compiled to dev/iac/aca-dev.compiled.json"
+          az bicep build --file dev/iac/aca-dev.bicep --outfile dev/iac/aca-dev.compiled.json
+          ls -l dev/iac/aca-dev.compiled.json
 
       - name: What-if (compiled JSON)
         run: |
@@ -141,12 +141,11 @@ jobs:
             fi
             sleep 10
           done
-          # Affiche l'URL ACA si dispo
           FQDN=$(az deployment group show -g "$RG" -n "$DEPLOY_NAME" --query "properties.outputs.containerAppFqdn.value" -o tsv || true)
           if [ -n "$FQDN" ]; then
             echo "Container App URL: https://${FQDN}"
           else
-            echo "Container App FQDN not available yet (first revision may be failing to pull image, OK for bootstrap)."
+            echo "Container App FQDN not available yet (OK if bootstrap image doesn't exist)."
           fi
 
       - name: Show Container App FQDN
