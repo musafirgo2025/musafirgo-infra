@@ -1,30 +1,31 @@
 // dev/iac/aca-dev.bicep
 
-@description('Préfixe pour les noms de ressources (ex: musafirgo)')
+@description('Prefix for resource names (e.g. musafirgo)')
+@minLength(5)
 param prefix string = 'musafirgo'
 
-@description('Région Azure')
+@description('Azure region')
 param location string = 'westeurope'
 
-@description("Nom logique de l’app (microservice)")
+@description('Logical app name (microservice)')
 param appName string = 'itinerary'
 
-@description("Image complète à déployer (ex: musafirgoacr.azurecr.io/musafirgo-itinerary-service:<tag>). Laisse vide pour un bootstrap avec une image publique.")
+@description('Full image reference (e.g. musafirgoacr.azurecr.io/musafirgo-itinerary-service:<tag>). Leave empty to bootstrap with a public image.')
 param containerImage string
 
-@description('CPU vCores (string car les floats ne sont pas supportés nativement). Ex: "0.5", "1", "2"')
+@description('CPU vCores as string (floats not natively supported). E.g. ''0.5'', ''1'', ''2''')
 param cpu string = '0.5'
 
-@description('RAM pour le conteneur (0.5Gi/1Gi/2Gi/4Gi)')
+@description('Container memory (e.g. 0.5Gi/1Gi/2Gi/4Gi)')
 param memory string = '1Gi'
 
 // ---------------- Vars ----------------
 var base = toLower('${prefix}-${appName}')
-var isBootstrap = empty(containerImage)
+var isBootstrap = (containerImage == '')
 var imageToUse = isBootstrap ? 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest' : containerImage
 var targetPort = isBootstrap ? 80 : 8081
 
-// 1) Log Analytics (logs ACA)
+// 1) Log Analytics (ACA logs)
 resource log 'Microsoft.OperationalInsights/workspaces@2021-12-01-preview' = {
   name: '${base}-log'
   location: location
@@ -34,7 +35,7 @@ resource log 'Microsoft.OperationalInsights/workspaces@2021-12-01-preview' = {
   }
 }
 
-// 2) Environnement géré pour Container Apps
+// 2) Managed Environment for Container Apps
 resource cae 'Microsoft.App/managedEnvironments@2024-02-02-preview' = {
   name: '${base}-env'
   location: location
@@ -49,24 +50,23 @@ resource cae 'Microsoft.App/managedEnvironments@2024-02-02-preview' = {
   }
 }
 
-// 3) Azure Container Registry (compte admin désactivé)
+// 3) Azure Container Registry (admin disabled)
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   name: '${prefix}acr'
   location: location
   sku: { name: 'Basic' }
   properties: {
     adminUserEnabled: false
-    // anonymousPullEnabled non supporté dans cette API → ne pas définir
   }
 }
 
-// 4) Identité managée (User Assigned) pour ACA (pull d’image ACR)
+// 4) User Assigned Managed Identity (for ACA to pull from ACR)
 resource uami 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: '${base}-uami'
   location: location
 }
 
-// 5) Rôle AcrPull: l’UAMI peut tirer l’image depuis l’ACR
+// 5) Assign AcrPull role to the UAMI on the ACR
 resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(acr.id, 'acrpull', uami.id)
   scope: acr
@@ -80,16 +80,13 @@ resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
-// 6) Container App (ingress public ; attend explicitement l’assignation AcrPull)
+// 6) Container App (public ingress; waits explicitly for AcrPull)
 resource app 'Microsoft.App/containerApps@2024-02-02-preview' = {
   name: '${base}-app'
   location: location
 
-  // Forcer l’ordre d’exécution pour éviter les échecs de pull au bootstrap
+  // Force order: ensure AcrPull role assignment is in place
   dependsOn: [
-    acr
-    uami
-    cae
     acrPull
   ]
 
@@ -113,7 +110,7 @@ resource app 'Microsoft.App/containerApps@2024-02-02-preview' = {
       registries: [
         {
           server: acr.properties.loginServer
-          identity: uami.id // Auth via UAMI, pas de secret
+          identity: uami.id
         }
       ]
       secrets: []
@@ -124,10 +121,8 @@ resource app 'Microsoft.App/containerApps@2024-02-02-preview' = {
           name: appName
           image: imageToUse
           env: [
-            // L’environnement est inoffensif si l’image de bootstrap l’ignore
             { name: 'JAVA_OPTS', value: '-XX:+UseG1GC -XX:MaxRAMPercentage=75' }
           ]
-          // Probes uniquement si on n’est pas en bootstrap (évite des 5xx sur l’image publique)
           probes: isBootstrap ? [] : [
             {
               type: 'liveness'
@@ -143,7 +138,7 @@ resource app 'Microsoft.App/containerApps@2024-02-02-preview' = {
             }
           ]
           resources: {
-            cpu: json(cpu)  // cpu est string → converti en number
+            cpu: json(cpu)
             memory: memory
           }
         }
