@@ -17,7 +17,7 @@ on:
         required: false
         default: "westeurope"
         type: string
-  workflow_dispatch:        # 👈 ajoute ceci pour pouvoir le lancer manuellement
+  workflow_dispatch:        # permet de lancer depuis musafirgo-infra même sans secrets
     inputs:
       imageRef:
         description: "Image à déployer (ex: musafirgoacr.azurecr.io/musafirgo-itinerary-service:bootstrap)"
@@ -30,6 +30,18 @@ on:
         description: "Azure region"
         required: false
         default: "westeurope"
+      clientId:
+        description: "AZURE_CLIENT_ID (optionnel si pas de secret dans ce repo)"
+        required: false
+        default: ""
+      tenantId:
+        description: "AZURE_TENANT_ID (optionnel si pas de secret dans ce repo)"
+        required: false
+        default: ""
+      subscriptionId:
+        description: "AZURE_SUBSCRIPTION_ID (optionnel si pas de secret dans ce repo)"
+        required: false
+        default: ""
 
 jobs:
   deploy-aca:
@@ -41,25 +53,42 @@ jobs:
       RG: ${{ inputs.resourceGroup }}
       LOCATION: ${{ inputs.location }}
       DEPLOY_NAME: aca-dev
+
     steps:
       - uses: actions/checkout@v4
-      - name: Check required secrets presence
-        env:
-          CI_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          SUB_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Résout les identifiants Azure: d'abord depuis les secrets (cas reusable),
+      # sinon depuis les inputs (cas workflow_dispatch lancé à la main).
+      - name: Resolve Azure IDs
+        id: ids
+        shell: bash
         run: |
-          [ -z "$CI_ID" ] && echo "Missing AZURE_CLIENT_ID" && exit 1 || echo "AZURE_CLIENT_ID ✓"
-          [ -z "$TENANT_ID" ] && echo "Missing AZURE_TENANT_ID" && exit 1 || echo "AZURE_TENANT_ID ✓"
-          [ -z "$SUB_ID" ] && echo "Missing AZURE_SUBSCRIPTION_ID" && exit 1 || echo "AZURE_SUBSCRIPTION_ID ✓"
+          CID="${{ secrets.AZURE_CLIENT_ID }}"
+          TID="${{ secrets.AZURE_TENANT_ID }}"
+          SID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+          [ -z "$CID" ] && CID="${{ inputs.clientId }}"
+          [ -z "$TID" ] && TID="${{ inputs.tenantId }}"
+          [ -z "$SID" ] && SID="${{ inputs.subscriptionId }}"
+          echo "client_id=$CID" >> $GITHUB_OUTPUT
+          echo "tenant_id=$TID" >> $GITHUB_OUTPUT
+          echo "sub_id=$SID" >> $GITHUB_OUTPUT
+          if [ -z "$CID" ] || [ -z "$TID" ] || [ -z "$SID" ]; then
+            echo "Missing Azure IDs. Provide repo secrets (AZURE_CLIENT_ID / AZURE_TENANT_ID / AZURE_SUBSCRIPTION_ID)"
+            echo "or fill inputs (clientId / tenantId / subscriptionId) when using workflow_dispatch."
+            exit 1
+          fi
+          echo "Azure IDs resolved ✓"
+
       - name: Azure Login (OIDC)
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id:  ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ steps.ids.outputs.client_id }}
+          tenant-id:  ${{ steps.ids.outputs.tenant_id }}
+          subscription-id: ${{ steps.ids.outputs.sub_id }}
+
       - name: Ensure Resource Group
         run: az group create -n "$RG" -l "$LOCATION" || echo "RG exists"
+
       - name: What-if (Bicep)
         run: |
           az deployment group what-if \
@@ -67,7 +96,8 @@ jobs:
             --resource-group "$RG" \
             --template-file dev/iac/aca-dev.bicep \
             --parameters @dev/iac/aca-dev.parameters.json \
-            --parameters containerImage="${{ inputs.imageRef }}"
+            --parameters containerImage="${{ inputs.imageRef || github.event.inputs.imageRef }}"
+
       - name: Deploy (Bicep)
         run: |
           az deployment group create \
@@ -75,7 +105,8 @@ jobs:
             --resource-group "$RG" \
             --template-file dev/iac/aca-dev.bicep \
             --parameters @dev/iac/aca-dev.parameters.json \
-            --parameters containerImage="${{ inputs.imageRef }}"
+            --parameters containerImage="${{ inputs.imageRef || github.event.inputs.imageRef }}"
+
       - name: Show Container App FQDN
         run: |
           FQDN=$(az deployment group show -g "$RG" -n "$DEPLOY_NAME" --query "properties.outputs.containerAppFqdn.value" -o tsv || true)
