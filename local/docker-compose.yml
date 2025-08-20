@@ -1,8 +1,9 @@
-version: "3.8"
-
 services:
   itinerary-service:
-    image: ${ITINERARY_IMAGE:-ghcr.io/musafirgo/musafirgo-itinerary-service:latest}
+    build:
+      context: ../../musafirgo-itinerary-service
+      dockerfile: Dockerfile
+    image: musafirgo-itinerary-service:dev
     container_name: itinerary-service
     ports:
       - "8081:8081"
