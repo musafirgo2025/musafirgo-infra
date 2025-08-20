@@ -109,14 +109,27 @@ jobs:
             --parameters @dev/iac/aca-dev.parameters.json \
             --parameters containerImage="${{ steps.img.outputs.image }}"
 
-      - name: Deploy (Bicep)
+      - name: Deploy (Bicep) - no output (CLI bug workaround)
         run: |
+          set -e
           az deployment group create \
             --name "$DEPLOY_NAME" \
             --resource-group "$RG" \
             --template-file dev/iac/aca-dev.bicep \
             --parameters @dev/iac/aca-dev.parameters.json \
-            --parameters containerImage="${{ steps.img.outputs.image }}"
+            --parameters containerImage="${{ steps.img.outputs.image }}" \
+            --only-show-errors \
+            --output none
+
+      - name: Fetch deployment outputs (FQDN)
+        run: |
+          az deployment group show -g "$RG" -n "$DEPLOY_NAME" -o jsonc
+          FQDN=$(az deployment group show -g "$RG" -n "$DEPLOY_NAME" --query "properties.outputs.containerAppFqdn.value" -o tsv || true)
+          if [ -n "$FQDN" ]; then
+            echo "Container App URL: https://${FQDN}"
+          else
+            echo "Container App FQDN not available yet (resource creation in progress or first revision failing to pull image)."
+          fi
 
       - name: Show Container App FQDN
         run: |
