@@ -100,33 +100,39 @@ jobs:
       - name: Ensure Resource Group
         run: az group create -n "$RG" -l "$LOCATION" || echo "RG exists"
 
-      - name: What-if (Bicep)
+      - name: Build Bicep to JSON (workaround)
+        run: |
+          az bicep install
+          az bicep build --file dev/iac/aca-dev.bicep --out-file dev/iac/aca-dev.compiled.json
+          echo "Bicep compiled to dev/iac/aca-dev.compiled.json"
+
+      - name: What-if (compiled JSON)
         run: |
           az deployment group what-if \
             --name "$DEPLOY_NAME" \
             --resource-group "$RG" \
-            --template-file dev/iac/aca-dev.bicep \
+            --template-file dev/iac/aca-dev.compiled.json \
             --parameters @dev/iac/aca-dev.parameters.json \
             --parameters containerImage="${{ steps.img.outputs.image }}"
 
-      - name: Deploy (Bicep) - async (workaround)
+      - name: Deploy (compiled JSON) - async
         run: |
           az deployment group create \
             --name "$DEPLOY_NAME" \
             --resource-group "$RG" \
-            --template-file dev/iac/aca-dev.bicep \
+            --template-file dev/iac/aca-dev.compiled.json \
             --parameters @dev/iac/aca-dev.parameters.json \
             --parameters containerImage="${{ steps.img.outputs.image }}" \
             --no-wait
 
-      - name: Wait for deployment completion
+      - name: Wait for deployment completion & show outputs
         run: |
           set -e
           for i in {1..60}; do
             state=$(az deployment group show -g "$RG" -n "$DEPLOY_NAME" --query "properties.provisioningState" -o tsv 2>/dev/null || echo "Pending")
             echo "ProvisioningState=$state (try $i/60)"
             if [ "$state" = "Succeeded" ]; then
-              exit 0
+              break
             fi
             if [ "$state" = "Failed" ] || [ "$state" = "Canceled" ]; then
               echo "Deployment $state"
@@ -135,19 +141,13 @@ jobs:
             fi
             sleep 10
           done
-          echo "Timeout waiting for deployment"
-          az deployment group show -g "$RG" -n "$DEPLOY_NAME" -o jsonc || true
-          exit 1
-
-      - name: Fetch deployment outputs (FQDN)
-        run: |
+          # Affiche l'URL ACA si dispo
           FQDN=$(az deployment group show -g "$RG" -n "$DEPLOY_NAME" --query "properties.outputs.containerAppFqdn.value" -o tsv || true)
           if [ -n "$FQDN" ]; then
             echo "Container App URL: https://${FQDN}"
           else
-            echo "Container App FQDN not available yet (first revision may be failing to pull image, which is OK for bootstrap)."
+            echo "Container App FQDN not available yet (first revision may be failing to pull image, OK for bootstrap)."
           fi
-      
 
       - name: Show Container App FQDN
         run: |
