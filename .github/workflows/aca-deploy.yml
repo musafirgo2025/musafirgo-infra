@@ -17,7 +17,7 @@ on:
         required: false
         default: "westeurope"
         type: string
-  workflow_dispatch:          # permet de lancer depuis ce repo même sans secrets
+  workflow_dispatch:
     inputs:
       imageRef:
         description: "Image à déployer (ex: musafirgoacr.azurecr.io/musafirgo-itinerary-service:bootstrap)"
@@ -31,15 +31,15 @@ on:
         required: false
         default: "westeurope"
       clientId:
-        description: "AZURE_CLIENT_ID (optionnel si pas de secret dans ce repo)"
+        description: "AZURE_CLIENT_ID (si pas de secrets dans ce repo)"
         required: false
         default: ""
       tenantId:
-        description: "AZURE_TENANT_ID (optionnel si pas de secret dans ce repo)"
+        description: "AZURE_TENANT_ID (si pas de secrets dans ce repo)"
         required: false
         default: ""
       subscriptionId:
-        description: "AZURE_SUBSCRIPTION_ID (optionnel si pas de secret dans ce repo)"
+        description: "AZURE_SUBSCRIPTION_ID (si pas de secrets dans ce repo)"
         required: false
         default: ""
 
@@ -57,7 +57,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Résout l'image (compatible workflow_call & workflow_dispatch)
       - name: Resolve imageRef
         id: img
         shell: bash
@@ -67,9 +66,6 @@ jobs:
           echo "image=$IMG" >> "$GITHUB_OUTPUT"
           echo "Using image: $IMG"
 
-      # Résout les identifiants Azure :
-      # 1) depuis les secrets (cas reusable via 'secrets: inherit'),
-      # 2) sinon depuis les inputs (cas workflow_dispatch manuel).
       - name: Resolve Azure IDs
         id: ids
         shell: bash
@@ -100,7 +96,9 @@ jobs:
       - name: Ensure Resource Group
         run: az group create -n "$RG" -l "$LOCATION" || echo "RG exists"
 
-      - name: Build Bicep to JSON (workaround)
+      # ===== Workaround: compiler Bicep -> JSON et déployer via ARM REST =====
+
+      - name: Build Bicep to JSON
         run: |
           az bicep install
           az bicep build --file dev/iac/aca-dev.bicep --outfile dev/iac/aca-dev.compiled.json
@@ -120,6 +118,7 @@ jobs:
           SUB_ID: ${{ steps.ids.outputs.sub_id }}
         run: |
           set -e
+          # Construit le body du déploiement (mode=Incremental)
           TEMPLATE_JSON=$(jq -c '.' dev/iac/aca-dev.compiled.json)
           PARAMS_OBJ=$(jq -c --arg img "${{ steps.img.outputs.image }}" '.parameters.containerImage.value=$img | .parameters' dev/iac/aca-dev.parameters.json)
           BODY=$(jq -n \
@@ -127,6 +126,7 @@ jobs:
             --argjson template "$TEMPLATE_JSON" \
             --argjson parameters "$PARAMS_OBJ" \
             '{properties:{mode:$mode, template:$template, parameters:$parameters}}')
+
           az rest \
             --method PUT \
             --url "https://management.azure.com/subscriptions/${SUB_ID}/resourcegroups/${RG}/providers/Microsoft.Resources/deployments/${DEPLOY_NAME}?api-version=2022-09-01" \
@@ -153,8 +153,3 @@ jobs:
           else
             echo "Container App FQDN not available yet (OK if bootstrap image doesn't exist)."
           fi
-
-      - name: Show Container App FQDN
-        run: |
-          FQDN=$(az deployment group show -g "$RG" -n "$DEPLOY_NAME" --query "properties.outputs.containerAppFqdn.value" -o tsv || true)
-          echo "Container App URL: https://${FQDN}"

@@ -11,7 +11,7 @@ param appName string = 'itinerary'
 @description('Image complète à déployer (ex: musafirgoacr.azurecr.io/musafirgo-itinerary-service:<tag>)')
 param containerImage string
 
-@description('CPU vCores (ex: "0.5", "1", "2"). Type string car Bicep ne supporte pas les floats.')
+@description('CPU vCores (string car Bicep n’accepte pas les floats directement, ex: "0.5", "1", "2")')
 param cpu string = '0.5'
 
 @description('RAM pour le conteneur (0.5Gi/1Gi/2Gi/4Gi)')
@@ -19,7 +19,7 @@ param memory string = '1Gi'
 
 var base = toLower('${prefix}-${appName}')
 
-// 1) Log Analytics (logs ACA)
+// 1) Log Analytics
 resource log 'Microsoft.OperationalInsights/workspaces@2021-12-01-preview' = {
   name: '${base}-log'
   location: location
@@ -29,7 +29,7 @@ resource log 'Microsoft.OperationalInsights/workspaces@2021-12-01-preview' = {
   }
 }
 
-// 2) Environnement géré pour Container Apps
+// 2) Environnement ACA
 resource cae 'Microsoft.App/managedEnvironments@2024-02-02-preview' = {
   name: '${base}-env'
   location: location
@@ -44,24 +44,24 @@ resource cae 'Microsoft.App/managedEnvironments@2024-02-02-preview' = {
   }
 }
 
-// 3) Azure Container Registry (compte admin désactivé)
+// 3) ACR (admin off)
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   name: '${prefix}acr'
   location: location
   sku: { name: 'Basic' }
   properties: {
     adminUserEnabled: false
-    // anonymousPullEnabled supprimé (non supporté par cette version d’API)
+    // anonymousPullEnabled retiré (non supporté dans cette API)
   }
 }
 
-// 4) Identité managée (User Assigned) pour ACA (pull d’image ACR)
+// 4) UAMI pour ACA (pull image)
 resource uami 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: '${base}-uami'
   location: location
 }
 
-// 5) Rôle AcrPull: l’ID managée peut tirer l’image depuis l’ACR
+// 5) AcrPull pour la UAMI
 resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(acr.id, 'acrpull', uami.id)
   scope: acr
@@ -75,7 +75,7 @@ resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
-// 6) Container App (ingress public 8081)
+// 6) Container App (ingress 8081)
 resource app 'Microsoft.App/containerApps@2024-02-02-preview' = {
   name: '${base}-app'
   location: location
@@ -93,16 +93,13 @@ resource app 'Microsoft.App/containerApps@2024-02-02-preview' = {
         targetPort: 8081
         transport: 'auto'
         traffic: [
-          {
-            latestRevision: true
-            weight: 100
-          }
+          { latestRevision: true, weight: 100 }
         ]
       }
       registries: [
         {
           server: acr.properties.loginServer
-          identity: uami.id // pas de secret: utilisation de l’ID managée
+          identity: uami.id
         }
       ]
       secrets: []
@@ -130,8 +127,7 @@ resource app 'Microsoft.App/containerApps@2024-02-02-preview' = {
             }
           ]
           resources: {
-            // cpu est une string → json(cpu) la convertit en nombre pour l’API
-            cpu: json(cpu)
+            cpu: json(cpu)   // cpu est string -> converti en number
             memory: memory
           }
         }
@@ -141,7 +137,7 @@ resource app 'Microsoft.App/containerApps@2024-02-02-preview' = {
   }
 }
 
-// Sorties utiles
+// Sorties
 output containerAppFqdn string = app.properties.configuration.ingress.fqdn
 output acrLoginServer   string = acr.properties.loginServer
 output managedEnvName   string = cae.name

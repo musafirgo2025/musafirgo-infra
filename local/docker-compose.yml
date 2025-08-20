@@ -1,8 +1,8 @@
 services:
   itinerary-service:
     build:
-      context: ../../musafirgo-itinerary-service
-      dockerfile: Dockerfile
+      context: ../../musafirgo-itinerary-service   # chemin vers le code du microservice
+      dockerfile: Dockerfile                       # adapte si le nom diffère
     image: musafirgo-itinerary-service:dev
     container_name: itinerary-service
     ports:
