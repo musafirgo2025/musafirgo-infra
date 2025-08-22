@@ -17,10 +17,16 @@ on:
         required: false
         default: "westeurope"
         type: string
+    # 👉 expose la sortie FQDN au workflow appelant
+    outputs:
+      fqdn:
+        description: "FQDN public de l'application ACA"
+        value: ${{ jobs.deploy-aca.outputs.fqdn }}
+
   workflow_dispatch:
     inputs:
       imageRef:
-        description: "Image à déployer (ex: musafirgoacr.azurecr.io/musafirgo-itinerary-service:bootstrap)"
+        description: "Image à déployer (ex: mcr.microsoft.com/azuredocs/containerapps-helloworld:latest)"
         required: true
       resourceGroup:
         description: "Resource Group cible"
@@ -53,10 +59,12 @@ jobs:
       RG: ${{ inputs.resourceGroup }}
       LOCATION: ${{ inputs.location }}
       DEPLOY_NAME: aca-dev
+    # 👉 sortie de job pour renvoyer le FQDN
+    outputs:
+      fqdn: ${{ steps.out.outputs.fqdn }}
 
     steps:
-      # IMPORTANT: quand ce workflow est appelé depuis un autre repo,
-      # on doit *explicitement* récupérer les fichiers d'infra.
+      # Toujours récupérer les fichiers d'infra même si appelé depuis un autre repo
       - name: Checkout infra repo (this workflow's files)
         uses: actions/checkout@v4
         with:
@@ -123,8 +131,7 @@ jobs:
             sudo apt-get install -y jq
           fi
 
-      # ===== Workaround fiable: compiler Bicep -> JSON et déployer via ARM REST =====
-
+      # ===== Build Bicep -> JSON =====
       - name: Build Bicep to JSON
         working-directory: infra
         run: |
@@ -142,6 +149,7 @@ jobs:
             --parameters @dev/iac/aca-dev.parameters.json \
             --parameters containerImage="${{ steps.img.outputs.image }}"
 
+      # ===== Deploy via ARM REST (workaround CLI) =====
       - name: Deploy (compiled JSON) via ARM REST
         working-directory: infra
         env:
@@ -184,3 +192,12 @@ jobs:
           else
             echo "Container App FQDN not available yet (OK if bootstrap image doesn't exist)."
           fi
+
+      # 👉 Exporte le FQDN comme output du job (visible par le workflow appelant)
+      - name: Export FQDN output
+        id: out
+        shell: bash
+        run: |
+          FQDN=$(az deployment group show -g "$RG" -n "$DEPLOY_NAME" --query "properties.outputs.containerAppFqdn.value" -o tsv || true)
+          echo "fqdn=$FQDN" >> "$GITHUB_OUTPUT"
+          echo "FQDN=$FQDN"
