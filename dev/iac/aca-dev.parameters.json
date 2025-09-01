@@ -7,6 +7,9 @@
     "appName": { "value": "itinerary" },
     "containerImage": { "value": "" },
     "cpu": { "value": "0.5" },
-    "memory": { "value": "1Gi" }
+    "memory": { "value": "1Gi" },
+    "apimSku": { "value": "Consumption" },
+    "apimPublisherName": { "value": "MusafirGO Team" },
+    "apimPublisherEmail": { "value": "dev@musafirgo.com" }
   }
 }

@@ -1,0 +1,33 @@
+{
+  "baseUrl": "http://localhost:8080",
+  "timeout": 10,
+  "maxRetries": 3,
+  "endpoints": {
+    "health": "/actuator/health",
+    "info": "/actuator/info",
+    "metrics": "/actuator/metrics",
+    "prometheus": "/actuator/prometheus",
+    "apiDocs": "/v3/api-docs",
+    "swaggerUi": "/swagger-ui/index.html",
+    "itinerary": "/api/itinerary"
+  },
+  "testData": {
+    "createItinerary": {
+      "city": "Casablanca",
+      "startDate": "2025-01-15",
+      "endDate": "2025-01-17"
+    },
+    "testCities": ["Casablanca", "Rabat", "Marrakech", "Fes"]
+  },
+  "expectedStatusCodes": {
+    "health": "200",
+    "info": "200",
+    "metrics": "200",
+    "prometheus": "200",
+    "apiDocs": "200",
+    "swaggerUi": "200",
+    "itineraryGet": "200",
+    "itineraryPost": "201",
+    "notFound": "404"
+  }
+}

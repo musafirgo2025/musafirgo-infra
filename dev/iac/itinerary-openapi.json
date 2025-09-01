@@ -1,0 +1,463 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "MusafirGO Itinerary Service API",
+    "description": "API for managing travel itineraries",
+    "version": "v1",
+    "contact": {
+      "name": "MusafirGO Team",
+      "email": "dev@musafirgo.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://{apim-gateway}/api/itinerary",
+      "description": "APIM Gateway",
+      "variables": {
+        "apim-gateway": {
+          "default": "musafirgo-apim.azure-api.net"
+        }
+      }
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Get all itineraries",
+        "description": "Retrieve a paginated list of all itineraries",
+        "operationId": "getAllItineraries",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number (0-based)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Page size",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItineraryPage"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new itinerary",
+        "description": "Create a new travel itinerary",
+        "operationId": "createItinerary",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateItineraryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Itinerary created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Itinerary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          }
+        }
+      }
+    },
+    "/{id}": {
+      "get": {
+        "summary": "Get itinerary by ID",
+        "description": "Retrieve a specific itinerary by its ID",
+        "operationId": "getItineraryById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Itinerary ID",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Itinerary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Itinerary not found"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update itinerary",
+        "description": "Update an existing itinerary",
+        "operationId": "updateItinerary",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Itinerary ID",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateItineraryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Itinerary updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Itinerary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Itinerary not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete itinerary",
+        "description": "Delete an itinerary by ID",
+        "operationId": "deleteItinerary",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Itinerary ID",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Itinerary deleted successfully"
+          },
+          "404": {
+            "description": "Itinerary not found"
+          }
+        }
+      }
+    },
+    "/{id}/days/{day}/items": {
+      "post": {
+        "summary": "Add item to day",
+        "description": "Add a new item to a specific day of an itinerary",
+        "operationId": "addItemToDay",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Itinerary ID",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "day",
+            "in": "path",
+            "required": true,
+            "description": "Day number (1-365)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 365
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "description": "Item text"
+                  }
+                },
+                "required": ["text"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Item added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Itinerary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or maximum items reached"
+          },
+          "404": {
+            "description": "Itinerary not found"
+          }
+        }
+      }
+    },
+    "/{id}/days/{day}/items/{index}": {
+      "delete": {
+        "summary": "Remove item from day",
+        "description": "Remove an item from a specific day of an itinerary",
+        "operationId": "removeItemFromDay",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Itinerary ID",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "day",
+            "in": "path",
+            "required": true,
+            "description": "Day number (1-365)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 365
+            }
+          },
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "description": "Item index to remove",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Item removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Itinerary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Itinerary, day, or item not found"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Itinerary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique identifier for the itinerary"
+          },
+          "city": {
+            "type": "string",
+            "description": "City name for the itinerary"
+          },
+          "dayPlans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DayPlan"
+            },
+            "description": "List of day plans"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date",
+            "description": "Start date of the itinerary"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date",
+            "description": "End date of the itinerary"
+          }
+        },
+        "required": ["city", "dayPlans", "startDate", "endDate"]
+      },
+      "DayPlan": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "integer",
+            "description": "Day number (1-365)"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Item"
+            },
+            "description": "List of items for this day"
+          }
+        },
+        "required": ["day", "items"]
+      },
+      "Item": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Item text/description"
+          }
+        },
+        "required": ["text"]
+      },
+      "CreateItineraryRequest": {
+        "type": "object",
+        "properties": {
+          "city": {
+            "type": "string",
+            "description": "City name for the itinerary"
+          },
+          "dayPlans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DayPlan"
+            },
+            "description": "List of day plans"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date",
+            "description": "Start date of the itinerary"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date",
+            "description": "End date of the itinerary"
+          }
+        },
+        "required": ["city", "startDate", "endDate"]
+      },
+      "UpdateItineraryRequest": {
+        "type": "object",
+        "properties": {
+          "city": {
+            "type": "string",
+            "description": "City name for the itinerary"
+          },
+          "dayPlans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DayPlan"
+            },
+            "description": "List of day plans"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date",
+            "description": "Start date of the itinerary"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date",
+            "description": "End date of the itinerary"
+          }
+        }
+      },
+      "ItineraryPage": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Itinerary"
+            }
+          },
+          "totalElements": {
+            "type": "integer",
+            "description": "Total number of elements"
+          },
+          "totalPages": {
+            "type": "integer",
+            "description": "Total number of pages"
+          },
+          "size": {
+            "type": "integer",
+            "description": "Page size"
+          },
+          "number": {
+            "type": "integer",
+            "description": "Current page number"
+          }
+        }
+      }
+    }
+  }
+}

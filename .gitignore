@@ -47,3 +47,5 @@ local/*.log
 .env
 *.secrets
 
+/setup-oidc.log
+/scripts/setup-oidc.log
