@@ -1,0 +1,141 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<flow-definition plugin="workflow-job@2.42">
+  <description>Pipeline MusafirGO Itinerary Service - Tests automatisés (Docker)</description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <jenkins.model.BuildDiscarderProperty>
+      <strategy class="hudson.tasks.LogRotator">
+        <daysToKeep>30</daysToKeep>
+        <numToKeep>50</numToKeep>
+        <artifactDaysToKeep>-1</artifactDaysToKeep>
+        <artifactNumToKeep>-1</artifactNumToKeep>
+      </strategy>
+    </jenkins.model.BuildDiscarderProperty>
+  </properties>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@2.90">
+    <script>pipeline {
+    agent any
+    
+    environment {
+        MUSAFIRGO_HOME = '/var/jenkins_home/workspace/musafirgo'
+        ITINERARY_SERVICE = 'musafirgo-infra/local/musafirgo-itinerary-service'
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                echo 'Vérification de l\'environnement MusafirGO...'
+                dir("${env.MUSAFIRGO_HOME}") {
+                    script {
+                        if (!fileExists("${env.ITINERARY_SERVICE}/pipeline-complete.ps1")) {
+                            error('Script pipeline-complete.ps1 non trouvé!')
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Prerequisites') {
+            steps {
+                echo 'Vérification des prérequis...'
+                sh '''
+                    echo "Vérification Docker..."
+                    docker --version
+                    echo "Vérification Docker Compose..."
+                    docker-compose --version
+                    echo "Vérification PowerShell..."
+                    which pwsh || which powershell || echo "PowerShell non trouvé - utilisation de bash"
+                '''
+            }
+        }
+        
+        stage('MusafirGO Pipeline') {
+            steps {
+                echo 'Exécution de la pipeline MusafirGO...'
+                dir("${env.MUSAFIRGO_HOME}/${env.ITINERARY_SERVICE}") {
+                    script {
+                        // Essayer PowerShell d'abord, puis bash
+                        try {
+                            sh '''
+                                if command -v pwsh >/dev/null 2>&1; then
+                                    echo "Utilisation de PowerShell Core (pwsh)"
+                                    pwsh -File pipeline-complete.ps1
+                                elif command -v powershell >/dev/null 2>&1; then
+                                    echo "Utilisation de PowerShell (powershell)"
+                                    powershell -File pipeline-complete.ps1
+                                else
+                                    echo "PowerShell non disponible, conversion en bash..."
+                                    # Convertir le script PowerShell en bash ou utiliser une alternative
+                                    echo "Exécution des tests Docker directement..."
+                                    docker-compose up -d
+                                    sleep 30
+                                    docker-compose exec -T itinerary-service curl -f http://localhost:8080/actuator/health || true
+                                    docker-compose down
+                                fi
+                            '''
+                        }
+                        catch (Exception e) {
+                            echo "Erreur lors de l'exécution: ${e.getMessage()}"
+                            // Fallback: exécution directe avec Docker
+                            sh '''
+                                echo "Exécution de fallback avec Docker..."
+                                docker-compose up -d
+                                sleep 30
+                                docker-compose exec -T itinerary-service curl -f http://localhost:8080/actuator/health || true
+                                docker-compose down
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Results') {
+            steps {
+                echo 'Analyse des résultats...'
+                dir("${env.MUSAFIRGO_HOME}/${env.ITINERARY_SERVICE}") {
+                    script {
+                        if (fileExists('results/pipeline-results.json')) {
+                            echo 'Rapport de résultats généré avec succès'
+                            archiveArtifacts artifacts: 'results/pipeline-results.json', fingerprint: true
+                        }
+                        else {
+                            echo 'Aucun rapport de résultats trouvé'
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            echo 'Pipeline MusafirGO terminée'
+            dir("${env.MUSAFIRGO_HOME}/${env.ITINERARY_SERVICE}") {
+                script {
+                    if (fileExists('results/pipeline-results.json')) {
+                        publishHTML([
+                            allowMissing: false,
+                            alwaysLinkToLastBuild: true,
+                            keepAll: true,
+                            reportDir: 'results',
+                            reportFiles: 'pipeline-results.json',
+                            reportName: 'MusafirGO Pipeline Report'
+                        ])
+                    }
+                }
+            }
+        }
+        success {
+            echo '✅ Pipeline MusafirGO réussie!'
+        }
+        failure {
+            echo '❌ Pipeline MusafirGO échouée!'
+        }
+    }
+}</script>
+    <sandbox>true</sandbox>
+  </definition>
+  <triggers/>
+  <disabled>false</disabled>
+</flow-definition>

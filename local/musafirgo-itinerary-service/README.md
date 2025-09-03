@@ -127,36 +127,21 @@ This solution provides a complete local environment for the MusafirGO Itinerary 
 - **`load-test-data.ps1`** - Test data loading
 - **`test-all-apis.ps1`** - Complete API testing
 
-### Optimization Scripts
-- **`scripts/optimize.ps1`** - System optimization and performance tuning
-- **`scripts/performance-test.ps1`** - Comprehensive performance testing and benchmarking
+### Utility Scripts
 - **`scripts/monitor.ps1`** - Real-time monitoring with enhanced metrics
-- **`scripts/cleanup.ps1`** - Resource cleanup and maintenance
 
 ### Configuration Files
-- **`docker-compose.yml`** - Optimized service configuration
-- **`Dockerfile`** - Multi-stage optimized build
-- **`config/postgresql.conf`** - PostgreSQL performance tuning
-- **`config/redis.conf`** - Redis optimization settings
-- **`data/dump-data.sql`** - Optimized test data with indexes
-- **`data/test-itineraries.json`** - JSON test data
+- **`docker-compose.yml`** - Service configuration
+- **`Dockerfile`** - Multi-stage build
+- **`data/dump-data.sql`** - Test data with indexes
 
 ## Results and Reports
-
-### Result Files
-Reports are saved in the `results/` folder:
-- `pipeline-complete-results-YYYYMMDD-HHMMSS.json`
-- `api-test-results-YYYYMMDD-HHMMSS.json`
-- `optimization-report-YYYYMMDD-HHMMSS.json`
-- `performance-report-YYYYMMDD-HHMMSS.json`
 
 ### Performance Metrics
 - API response times
 - Test duration
 - Success rate
 - Statistics by category
-- Load testing results
-- System optimization reports
 
 ## Troubleshooting
 
@@ -261,37 +246,13 @@ GET    /swagger-ui/index.html        # Swagger UI (new)
 ### Development
 ```powershell
 # Quick start for development
-.\pipeline-complete.ps1 -SkipInit -SkipDataLoad
-
-# Optimize system for development
-.\scripts\optimize.ps1
+.\pipeline-complete.ps1
 ```
 
-### Performance Testing
+### Monitoring
 ```powershell
-# Run comprehensive performance tests
-.\scripts\performance-test.ps1 -ConcurrentUsers 20 -TestDuration 120
-
 # Monitor system in real-time
 .\scripts\monitor.ps1 -Interval 3
-```
-
-### Regression Testing
-```powershell
-# Complete tests with reports
-.\pipeline-complete.ps1 -SaveResults
-
-# Performance benchmarking
-.\scripts\performance-test.ps1 -Verbose
-```
-
-### Production Optimization
-```powershell
-# Optimize system for production
-.\scripts\optimize.ps1 -Force
-
-# Clean up resources
-.\scripts\cleanup.ps1 -All -Force
 ```
 
 ### Demonstration
@@ -303,22 +264,16 @@ GET    /swagger-ui/index.html        # Swagger UI (new)
 .\scripts\monitor.ps1
 ```
 
-## Performance Optimizations
+## Performance Benchmarks
 
-### System Optimizations
-- **PostgreSQL**: Optimized configuration with proper indexing and memory settings
-- **Redis**: Tuned for caching with LRU eviction policy and memory management
-- **JVM**: G1GC with optimized heap settings and container support
-- **Docker**: Multi-stage builds with layer caching and security hardening
-
-### Performance Benchmarks
-- **Health Check**: < 30ms (optimized from 50ms)
-- **List Itineraries**: < 60ms (optimized from 100ms)
-- **Get Itinerary**: < 40ms (optimized from 80ms)
-- **Create Itinerary**: < 120ms (optimized from 200ms)
-- **Media Operations**: < 80ms (optimized from 150ms)
-- **Database Queries**: 50% faster with optimized indexes
-- **Cache Hit Rate**: 95%+ with Redis optimization
+### Response Times
+- **Health Check**: < 30ms
+- **List Itineraries**: < 60ms
+- **Get Itinerary**: < 40ms
+- **Create Itinerary**: < 120ms
+- **Media Operations**: < 80ms
+- **Database Queries**: Optimized with indexes
+- **Cache Hit Rate**: 95%+ with Redis
 
 ### Test Coverage
 - **Health Tests**: 3/3 (100%)
