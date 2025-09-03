@@ -71,8 +71,6 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./logs:/app/logs
-      - ./data/media-files:/app/media:ro
       - ../../../musafirgo-itinerary-service/target:/app/target:ro
     networks:
       - musafirgo-network

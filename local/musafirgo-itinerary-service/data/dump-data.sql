@@ -1,5 +1,6 @@
--- Données de test pour le service Itinerary MusafirGO
--- Ce fichier est exécuté après que l'application ait créé les tables via Flyway
+-- Optimized test data for MusafirGO Itinerary Service
+-- This file is executed after the application creates tables via Flyway
+-- Optimized for performance with proper indexing and data structure
 
 -- Vérifier si toutes les tables existent avant de procéder et insérer les données
 DO $$
@@ -231,6 +232,20 @@ BEGIN
     ('550e8400-e29b-41d4-a716-446655440502', '550e8400-e29b-41d4-a716-446655440005', 'essaouira-surf-session.mp4', 'video/mp4', 33554432, 'https://musafirgo.blob.core.windows.net/media/essaouira-surf-session.mp4', NOW(), true)
     ON CONFLICT (id) DO NOTHING;
     
-    RAISE NOTICE 'Test data loaded successfully!';
+    -- Create optimized indexes for better performance
+    CREATE INDEX IF NOT EXISTS idx_itinerary_city ON itinerary(city);
+    CREATE INDEX IF NOT EXISTS idx_day_plan_itinerary_id ON day_plan(itinerary_id);
+    CREATE INDEX IF NOT EXISTS idx_day_plan_day_number ON day_plan(day_number);
+    CREATE INDEX IF NOT EXISTS idx_media_itinerary_id ON media(itinerary_id);
+    CREATE INDEX IF NOT EXISTS idx_media_active ON media(is_active);
+    CREATE INDEX IF NOT EXISTS idx_media_uploaded_at ON media(uploaded_at);
+    
+    -- Update table statistics for query optimizer
+    ANALYZE itinerary;
+    ANALYZE day_plan;
+    ANALYZE day_plan_item;
+    ANALYZE media;
+    
+    RAISE NOTICE 'Optimized test data loaded successfully with indexes!';
     
 END $$;

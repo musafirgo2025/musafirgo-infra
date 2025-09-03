@@ -1,5 +1,5 @@
-# Script de monitoring en temps réel
-# Ce script surveille les services et affiche les métriques en temps réel
+# Optimized real-time monitoring script
+# This script monitors services and displays real-time metrics with performance optimizations
 
 param(
     [string]$BaseUrl = "http://localhost:8080",
@@ -24,19 +24,30 @@ function Write-Log {
     Write-Host "[$Timestamp] $Message" -ForegroundColor $Color
 }
 
-# Fonction pour récupérer les métriques du service
+# Optimized function to retrieve service metrics
 function Get-ServiceMetrics {
     param([string]$Url)
     
     try {
         $startTime = Get-Date
-        $response = Invoke-WebRequest -Uri $Url -Method GET -TimeoutSec 5 -UseBasicParsing
+        $response = Invoke-WebRequest -Uri $Url -Method GET -TimeoutSec 3 -UseBasicParsing
         $endTime = Get-Date
         
         $responseTime = ($endTime - $startTime).TotalMilliseconds
         
+        # Parse health status from response
+        $healthStatus = "UNKNOWN"
+        try {
+            $healthData = $response.Content | ConvertFrom-Json
+            $healthStatus = $healthData.status
+        }
+        catch {
+            $healthStatus = "OK"
+        }
+        
         return @{
             Status = "OK"
+            HealthStatus = $healthStatus
             StatusCode = $response.StatusCode
             ResponseTime = [math]::Round($responseTime, 2)
             Timestamp = $startTime
@@ -45,6 +56,7 @@ function Get-ServiceMetrics {
     catch {
         return @{
             Status = "ERROR"
+            HealthStatus = "DOWN"
             StatusCode = $null
             ResponseTime = $null
             Error = $_.Exception.Message
