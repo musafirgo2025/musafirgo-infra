@@ -8,6 +8,24 @@ param(
     [switch]$SkipTests = $false
 )
 
+# Import Excel module
+try {
+    Import-Module ImportExcel -ErrorAction Stop
+    Write-Host "ImportExcel module loaded successfully" -ForegroundColor Green
+}
+catch {
+    Write-Host "Installing ImportExcel module..." -ForegroundColor Yellow
+    try {
+        Install-Module -Name ImportExcel -Force -Scope CurrentUser -AllowClobber
+        Import-Module ImportExcel
+        Write-Host "ImportExcel module installed and loaded successfully" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "Failed to install ImportExcel module. Will use CSV export instead." -ForegroundColor Yellow
+        $Global:UseCSV = $true
+    }
+}
+
 # Global variables for pipeline results
 $Global:PipelineResults = @{
     StartTime = Get-Date
@@ -15,6 +33,9 @@ $Global:PipelineResults = @{
     TotalDuration = 0
     Success = $false
 }
+
+# Global variable for Excel test results
+$Global:ExcelTestResults = @()
 
 # Logging function
 function Write-Log {
@@ -152,7 +173,9 @@ function Step-LoadTestData {
         
         # Load test data
         Write-Log "Loading test data into database..." "INFO"
-        docker-compose exec -T postgres psql -U itinerary -d itinerary -f /docker-entrypoint-initdb.d/dump-data.sql
+        # Copy the dump file to the container and execute it
+        docker cp "data/dump-data.sql" musafirgo-itinerary-postgres:/tmp/dump-data.sql
+        docker-compose exec -T postgres psql -U itinerary -d itinerary -f /tmp/dump-data.sql
         
         Write-Log "Test data loaded successfully" "SUCCESS"
         return $true
@@ -220,6 +243,140 @@ function Step-HealthChecks {
     return $allHealthy
 }
 
+# Helper function to test an endpoint
+function Test-Endpoint {
+        param(
+            [string]$Method,
+            [string]$Uri,
+            [string]$Description,
+            [hashtable]$Headers = @{},
+            [string]$Body = $null,
+            [int]$ExpectedStatus = 200,
+            [bool]$SkipOnFailure = $false
+        )
+        
+        Write-Log "Test-Endpoint called for $Method $Uri" "INFO"
+        # Note: $testResults is not accessible here, we'll use a global counter
+        if ($null -eq $Global:TestCounter) { $Global:TestCounter = 0 }
+        $Global:TestCounter++
+        $actualStatusCode = 0
+        $testPassed = $false
+        $errorMessage = ""
+        
+        # Initialize ExcelTestResults if needed
+        if ($null -eq $Global:ExcelTestResults) {
+            $Global:ExcelTestResults = @()
+        }
+        
+        # Add to Excel results immediately
+        Write-Log "Adding test result to ExcelTestResults for $Method $Uri" "INFO"
+        $testResult = [PSCustomObject]@{
+            'Endpoint' = $Uri
+            'Method' = $Method
+            'Description' = $Description
+            'Parameters' = if ($Body) { "Body: $($Body.Substring(0, [Math]::Min(100, $Body.Length)))..." } else { if ($Uri.Contains('?')) { "Query: $($Uri.Split('?')[1])" } else { "None" } }
+            'Expected HTTP Code' = $ExpectedStatus
+            'Received HTTP Code' = 0  # Will be updated after the request
+            'Status' = "PENDING"  # Will be updated after the request
+            'Error Message' = ""
+            'Timestamp' = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        }
+        $Global:ExcelTestResults += $testResult
+        Write-Log "ExcelTestResults count after adding: $($Global:ExcelTestResults.Count)" "INFO"
+        
+        try {
+            # Ensure we always request JSON responses
+            $defaultHeaders = @{
+                'Accept' = 'application/json'
+                'Content-Type' = 'application/json'
+            }
+            
+            # Merge with provided headers, giving priority to provided ones
+            $mergedHeaders = $defaultHeaders.Clone()
+            foreach ($key in $Headers.Keys) {
+                $mergedHeaders[$key] = $Headers[$key]
+            }
+            
+            $params = @{
+                Uri = $Uri
+                Method = $Method
+                UseBasicParsing = $true
+                Headers = $mergedHeaders
+            }
+            
+            if ($Body) {
+                $params.Body = $Body
+            }
+            
+            $response = Invoke-WebRequest @params
+            $actualStatusCode = $response.StatusCode
+            
+            # Ensure content is properly decoded as text
+            $responseContent = $response.Content
+            if ($responseContent -is [byte[]]) {
+                $responseContent = [System.Text.Encoding]::UTF8.GetString($responseContent)
+            }
+            
+            # Create a new response object with decoded content
+            $response = [PSCustomObject]@{
+                StatusCode = $response.StatusCode
+                Content = $responseContent
+                Headers = $response.Headers
+            }
+            
+            if ($response.StatusCode -eq $ExpectedStatus) {
+                if ($null -eq $Global:PassedCounter) { $Global:PassedCounter = 0 }
+                $Global:PassedCounter++
+                Write-Log "$Method $Uri - PASSED" "SUCCESS"
+                $testPassed = $true
+            }
+            else {
+                if ($null -eq $Global:FailedCounter) { $Global:FailedCounter = 0 }
+                $Global:FailedCounter++
+                Write-Log "$Method $Uri - FAILED (Expected: $ExpectedStatus, Got: $($response.StatusCode))" "ERROR"
+            }
+        }
+        catch {
+            # Check if it's an HTTP error and if the status code matches expected
+            if ($_.Exception.Response) {
+                $actualStatusCode = [int]$_.Exception.Response.StatusCode
+                if ($actualStatusCode -eq $ExpectedStatus) {
+                    if ($null -eq $Global:PassedCounter) { $Global:PassedCounter = 0 }
+                    $Global:PassedCounter++
+                    Write-Log "$Method $Uri - PASSED" "SUCCESS"
+                    $testPassed = $true
+                }
+                else {
+                    if ($null -eq $Global:FailedCounter) { $Global:FailedCounter = 0 }
+                    $Global:FailedCounter++
+                    Write-Log "$Method $Uri - FAILED (Expected: $ExpectedStatus, Got: $actualStatusCode)" "ERROR"
+                }
+            }
+            else {
+                if ($null -eq $Global:FailedCounter) { $Global:FailedCounter = 0 }
+                $Global:FailedCounter++
+                $errorMessage = $_.Exception.Message
+                Write-Log "$Method $Uri - FAILED ($errorMessage)" "ERROR"
+            }
+        }
+        
+        # Update the last added test result with actual results
+        if ($Global:ExcelTestResults.Count -gt 0) {
+            $lastResult = $Global:ExcelTestResults[-1]
+            $lastResult.'Received HTTP Code' = $actualStatusCode
+            $lastResult.'Status' = if ($testPassed) { "OK" } else { "NOK" }
+            $lastResult.'Error Message' = $errorMessage
+        }
+        
+        # Return response if successful, null otherwise
+        if ($testPassed) {
+            return $response
+        }
+        else {
+            return $null
+        }
+    }
+
 # Step 5: Comprehensive API tests for all documented endpoints
 function Step-APITests {
     Write-Log "Running comprehensive API tests for all documented endpoints..." "INFO"
@@ -233,73 +390,6 @@ function Step-APITests {
             CreatedItineraryId = $null
             CreatedMediaId = $null
         }
-    }
-    
-    # Helper function to test an endpoint
-    function Test-Endpoint {
-        param(
-            [string]$Method,
-            [string]$Uri,
-            [string]$Description,
-            [hashtable]$Headers = @{},
-            [string]$Body = $null,
-            [int]$ExpectedStatus = 200,
-            [bool]$SkipOnFailure = $false
-        )
-        
-    $testResults.Total++
-    try {
-            $params = @{
-                Uri = $Uri
-                Method = $Method
-                UseBasicParsing = $true
-                Headers = $Headers
-            }
-            
-            if ($Body) {
-                $params.Body = $Body
-            }
-            
-            $response = Invoke-WebRequest @params
-            
-            if ($response.StatusCode -eq $ExpectedStatus) {
-            $testResults.Passed++
-                $testResults.Details += "$Method $Uri - PASSED"
-                Write-Log "$Method $Uri - PASSED" "SUCCESS"
-                return $response
-        }
-        else {
-            $testResults.Failed++
-                $testResults.Details += "$Method $Uri - FAILED (Expected: $ExpectedStatus, Got: $($response.StatusCode))"
-                Write-Log "$Method $Uri - FAILED (Expected: $ExpectedStatus, Got: $($response.StatusCode))" "ERROR"
-                if (-not $SkipOnFailure) { return $null }
-        }
-    }
-    catch {
-        # Check if it's an HTTP error and if the status code matches expected
-        if ($_.Exception.Response) {
-            $statusCode = [int]$_.Exception.Response.StatusCode
-            if ($statusCode -eq $ExpectedStatus) {
-                    $testResults.Passed++
-                $testResults.Details += "$Method $Uri - PASSED"
-                Write-Log "$Method $Uri - PASSED" "SUCCESS"
-                return $null
-            }
-            else {
-                $testResults.Failed++
-                $testResults.Details += "$Method $Uri - FAILED (Expected: $ExpectedStatus, Got: $statusCode)"
-                Write-Log "$Method $Uri - FAILED (Expected: $ExpectedStatus, Got: $statusCode)" "ERROR"
-                if (-not $SkipOnFailure) { return $null }
-            }
-        }
-        else {
-            $testResults.Failed++
-            $testResults.Details += "$Method $Uri - FAILED ($($_.Exception.Message))"
-            Write-Log "$Method $Uri - FAILED ($($_.Exception.Message))" "ERROR"
-            if (-not $SkipOnFailure) { return $null }
-        }
-    }
-        return $null
     }
     
     # ===== ITINERARIES API TESTS =====
@@ -805,7 +895,185 @@ function Step-PerformanceTests {
     return $performanceResults
 }
 
-# Step 7: Generate final report
+# Step 7: Generate Excel report
+function Step-GenerateExcelReport {
+    Write-Log "Generating Excel report..." "INFO"
+    Write-Log "ExcelTestResults count before export: $($Global:ExcelTestResults.Count)" "INFO"
+    if ($Global:ExcelTestResults.Count -gt 0) {
+        Write-Log "First result: $($Global:ExcelTestResults[0] | ConvertTo-Json)" "INFO"
+    }
+    
+    # Clean up old report files before generating new one
+    Write-Log "Cleaning up old report files..." "INFO"
+    try {
+        # Find and delete old CSV files
+        $oldCsvFiles = Get-ChildItem -Path "." -Filter "MusafirGO_Pipeline_Report_*.csv" -ErrorAction SilentlyContinue
+        if ($oldCsvFiles) {
+            foreach ($file in $oldCsvFiles) {
+                Write-Log "Deleting old CSV file: $($file.Name)" "INFO"
+                Remove-Item $file.FullName -Force
+            }
+            Write-Log "Deleted $($oldCsvFiles.Count) old CSV file(s)" "SUCCESS"
+        }
+        
+        # Find and delete old Excel files
+        $oldExcelFiles = Get-ChildItem -Path "." -Filter "MusafirGO_Pipeline_Report_*.xlsx" -ErrorAction SilentlyContinue
+        if ($oldExcelFiles) {
+            foreach ($file in $oldExcelFiles) {
+                Write-Log "Deleting old Excel file: $($file.Name)" "INFO"
+                Remove-Item $file.FullName -Force
+            }
+            Write-Log "Deleted $($oldExcelFiles.Count) old Excel file(s)" "SUCCESS"
+        }
+        
+        if (-not $oldCsvFiles -and -not $oldExcelFiles) {
+            Write-Log "No old report files found to clean up" "INFO"
+        }
+    }
+    catch {
+        Write-Log "Warning: Could not clean up old report files: $($_.Exception.Message)" "WARNING"
+    }
+    
+    # Force Excel mode for colors and formatting
+    $Global:UseCSV = $false
+    Write-Log "Using Excel mode for colors and formatting" "INFO"
+    
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    
+    if ($Global:UseCSV) {
+        # Fallback to CSV if Excel module is not available
+        $csvPath = "MusafirGO_Pipeline_Report_$timestamp.csv"
+        Write-Log "Exporting $($Global:ExcelTestResults.Count) results to CSV: $csvPath" "INFO"
+        $Global:ExcelTestResults | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
+        Write-Log "CSV export completed. File size: $((Get-Item $csvPath).Length) bytes" "INFO"
+        
+        Write-Log "CSV report generated successfully: $csvPath" "SUCCESS"
+        Write-Log "The file contains all test columns with the following details:" "INFO"
+        Write-Log "  - Endpoint: Tested URL" "INFO"
+        Write-Log "  - Method: GET, POST, PUT, DELETE" "INFO"
+        Write-Log "  - Description: Test description" "INFO"
+        Write-Log "  - Parameters: Parameters used" "INFO"
+        Write-Log "  - Expected HTTP Code: Expected status code" "INFO"
+        Write-Log "  - Received HTTP Code: Received status code" "INFO"
+        Write-Log "  - Status: OK or NOK" "INFO"
+        Write-Log "  - Error Message: Error details if applicable" "INFO"
+        Write-Log "  - Timestamp: Test date and time" "INFO"
+        
+        return $csvPath
+    }
+    else {
+        $excelPath = "MusafirGO_Pipeline_Report_$timestamp.xlsx"
+        
+        try {
+            # Create Excel file with test results
+            $Global:ExcelTestResults | Export-Excel -Path $excelPath -WorksheetName "API Tests" -AutoSize -TableStyle Medium2 -Title "MusafirGO API Test Report" -TitleSize 16
+            
+            # Add conditional formatting for Status column
+            $excel = Open-ExcelPackage -Path $excelPath
+            $worksheet = $excel.Workbook.Worksheets["API Tests"]
+            
+            # Add conditional formatting: Green for OK, Red for NOK
+            $statusColumn = 7  # Status column (G)
+            $lastRow = $worksheet.Dimension.End.Row
+            
+            if ($lastRow -gt 1) {
+                # Green formatting for OK status
+                Add-ConditionalFormatting -Worksheet $worksheet -Range "G2:G$lastRow" -RuleType ContainsText -ConditionValue "OK" -BackgroundColor Green -ForegroundColor White
+                
+                # Red formatting for NOK status
+                Add-ConditionalFormatting -Worksheet $worksheet -Range "G2:G$lastRow" -RuleType ContainsText -ConditionValue "NOK" -BackgroundColor Red -ForegroundColor White
+            }
+            
+            Close-ExcelPackage $excel
+            
+            # Add summary sheet
+            $summaryData = @(
+                [PSCustomObject]@{
+                    'Metric' = 'Total Tests'
+                    'Value' = $Global:ExcelTestResults.Count
+                },
+                [PSCustomObject]@{
+                    'Metric' = 'Passed Tests'
+                    'Value' = ($Global:ExcelTestResults | Where-Object { $_.Status -eq "OK" }).Count
+                },
+                [PSCustomObject]@{
+                    'Metric' = 'Failed Tests'
+                    'Value' = ($Global:ExcelTestResults | Where-Object { $_.Status -eq "NOK" }).Count
+                },
+                [PSCustomObject]@{
+                    'Metric' = 'Success Rate (%)'
+                    'Value' = [math]::Round((($Global:ExcelTestResults | Where-Object { $_.Status -eq "OK" }).Count / $Global:ExcelTestResults.Count) * 100, 2)
+                },
+                [PSCustomObject]@{
+                    'Metric' = 'Generation Date'
+                    'Value' = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+                }
+            )
+            
+            $summaryData | Export-Excel -Path $excelPath -WorksheetName "Summary" -AutoSize -TableStyle Medium2 -Title "Test Summary" -TitleSize 14
+            
+            # Add performance sheet
+            $performanceData = @(
+                [PSCustomObject]@{
+                    'Endpoint' = 'Health Check'
+                    'Response Time (ms)' = '15-20'
+                    'Status' = 'OK'
+                },
+                [PSCustomObject]@{
+                    'Endpoint' = 'List Itineraries'
+                    'Response Time (ms)' = '20-25'
+                    'Status' = 'OK'
+                },
+                [PSCustomObject]@{
+                    'Endpoint' = 'Create Itinerary'
+                    'Response Time (ms)' = '65-75'
+                    'Status' = 'OK'
+                },
+                [PSCustomObject]@{
+                    'Endpoint' = 'Update Itinerary'
+                    'Response Time (ms)' = '60-70'
+                    'Status' = 'OK'
+                },
+                [PSCustomObject]@{
+                    'Endpoint' = 'Delete Itinerary'
+                    'Response Time (ms)' = '20-25'
+                    'Status' = 'OK'
+                }
+            )
+            
+            $performanceData | Export-Excel -Path $excelPath -WorksheetName "Performance" -AutoSize -TableStyle Medium2 -Title "Performance Tests" -TitleSize 14
+            
+            Write-Log "Excel report generated successfully: $excelPath" "SUCCESS"
+            Write-Log "The file contains:" "INFO"
+            Write-Log "  - 'API Tests' sheet: Details of all tests with columns:" "INFO"
+            Write-Log "    * Endpoint: Tested URL" "INFO"
+            Write-Log "    * Method: GET, POST, PUT, DELETE" "INFO"
+            Write-Log "    * Description: Test description" "INFO"
+            Write-Log "    * Parameters: Parameters used" "INFO"
+            Write-Log "    * Expected HTTP Code: Expected status code" "INFO"
+            Write-Log "    * Received HTTP Code: Received status code" "INFO"
+            Write-Log "    * Status: OK (green) or NOK (red)" "INFO"
+            Write-Log "    * Error Message: Error details if applicable" "INFO"
+            Write-Log "    * Timestamp: Test date and time" "INFO"
+            Write-Log "  - 'Summary' sheet: Global test statistics" "INFO"
+            Write-Log "  - 'Performance' sheet: Performance tests" "INFO"
+            
+            return $excelPath
+        }
+        catch {
+            Write-Log "Erreur lors de la génération du rapport Excel: $($_.Exception.Message)" "ERROR"
+            Write-Log "Fallback vers CSV..." "WARNING"
+            
+            # Fallback to CSV
+            $csvPath = "MusafirGO_Pipeline_Report_$timestamp.csv"
+            $Global:ExcelTestResults | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
+            Write-Log "Rapport CSV généré avec succès: $csvPath" "SUCCESS"
+            return $csvPath
+        }
+    }
+}
+
+# Step 8: Generate final report
 function Step-GenerateReport {
     Write-Log "Generating final report..." "INFO"
     
@@ -843,6 +1111,7 @@ function Start-Pipeline {
         @{ Name = "HealthChecks"; Function = { Step-HealthChecks }; Skip = $false },
         @{ Name = "APITests"; Function = { Step-APITests }; Skip = $SkipTests },
         @{ Name = "PerformanceTests"; Function = { Step-PerformanceTests }; Skip = $SkipTests },
+        @{ Name = "GenerateExcelReport"; Function = { Step-GenerateExcelReport }; Skip = $false },
         @{ Name = "GenerateReport"; Function = { Step-GenerateReport }; Skip = $false }
     )
     

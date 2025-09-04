@@ -47,3 +47,5 @@ for ($i = 1; $i -le $MaxAttempts; $i++) {
 # Démarrer Jenkins
 Write-Host "Démarrage de Jenkins..." -ForegroundColor Yellow
 & ".\start-jenkins-docker.ps1"
+
+

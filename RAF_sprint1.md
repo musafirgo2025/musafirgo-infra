@@ -221,7 +221,7 @@ musafirgo-ai-assist-service/       # Service AI Assistant (ms-ai-assist)
 - **Note** : Le repo `musafirgo-itinerary-service` existe déjà, migration du code Java vers Node.js
 
 ### **8. Environnement Local Complet (selon DAT)** - 2 SP
-- **Statut** : ✅ **COMPLÉTÉ** (Pipeline 100% succès, structure optimisée)
+- **Statut** : ✅ **COMPLÉTÉ** (Pipeline 100% succès, structure optimisée, Jenkins dockerisé)
 - **Assignee** : DevOps
 - **Description** : Compléter l'environnement local avec tous les services selon l'architecture DAT
 - **AC (Acceptance Criteria)** :
@@ -234,6 +234,9 @@ musafirgo-ai-assist-service/       # Service AI Assistant (ms-ai-assist)
   - [x] Validation tous les web services Itinerary (47/47 tests en vert)
   - [x] Nettoyage et optimisation de la structure
   - [x] Documentation mise à jour
+  - [x] Pipeline graphique Jenkins dockerisée configurée
+  - [x] Scripts de démarrage et configuration Jenkins
+  - [x] Organisation dans dossier dédié `musafirgo-infra/local/jenkins/`
   - [ ] Ajout d'OpenSearch dans docker-compose.yml
   - [ ] Configuration des services manquants (IAM, Discovery, etc.)
   - [ ] Scripts PowerShell mis à jour pour tous les services
@@ -269,8 +272,8 @@ musafirgo-ai-assist-service/       # Service AI Assistant (ms-ai-assist)
 ## 📊 Métriques de Suivi
 
 ### **Vélocité DevOps**
-- **Sprint 1** : 8 SP complétés (32%) - ✅ +2 SP (Environnement Local Complet)
-- **En attente** : 17 SP (Migration AKS + PostgreSQL + GitOps + Landing + Angular + Repos + Migration Itinerary + AKS Local + Données Test)
+- **Sprint 1** : 8 SP complétés (32%) - ✅ +2 SP (Environnement Local Complet + Jenkins Dockerisé)
+- **En attente** : 15 SP (Migration AKS + PostgreSQL + GitOps + Landing + Angular + Repos + Migration Itinerary + AKS Local + Données Test)
 - **Total Sprint 1** : 25 SP
 
 ### **Infrastructure**
@@ -290,6 +293,8 @@ musafirgo-ai-assist-service/       # Service AI Assistant (ms-ai-assist)
 - **Build** : Maven réussi, JAR généré avec corrections
 - **Structure** : Nettoyage complet, fichiers essentiels seulement
 - **Performance** : Temps de réponse < 200ms, 27.49ms en moyenne
+- **Jenkins Dockerisé** : Pipeline graphique configurée (http://localhost:8080)
+- **Organisation** : Dossier dédié `musafirgo-infra/local/jenkins/`
 - **Services manquants** : OpenSearch, 13 autres microservices
 - **K8s local** : Non configuré (Kind/Minikube)
 
@@ -458,6 +463,8 @@ Services Manquants (11/15) :
 - Build Maven réussi avec corrections
 - Nettoyage et optimisation complète de la structure
 - Performance optimisée (temps de réponse < 200ms)
+- Pipeline graphique Jenkins dockerisée configurée
+- Organisation dans dossier dédié `musafirgo-infra/local/jenkins/`
 
 ### **🎯 En cours (selon DAT)**
 - Migration vers AKS (architecture cible)
@@ -490,11 +497,11 @@ Services Manquants (11/15) :
 
 ---
 
-**🎯 Sprint 1 DevOps EN COURS - Infrastructure POC opérationnelle, pipeline automatisée (47/47 tests en vert), structure optimisée, migration vers architecture DAT en cours !**
+**🎯 Sprint 1 DevOps EN COURS - Infrastructure POC opérationnelle, pipeline automatisée (47/47 tests en vert), structure optimisée, Jenkins dockerisé configuré, migration vers architecture DAT en cours !**
 
 ---
 
 *RAF généré le 3 Septembre 2025*  
 *Composant : DevOps & Infrastructure*  
 *Architecture : Aligné sur DAT v1.0 (15/08/2025)*  
-*Statut : 🚧 Sprint 1 En cours - Pipeline automatisée (100% succès), structure optimisée, migration vers architecture cible DAT*
+*Statut : 🚧 Sprint 1 En cours - Pipeline automatisée (100% succès), structure optimisée, Jenkins dockerisé configuré, migration vers architecture cible DAT*
