@@ -33,3 +33,6 @@ echo ""
 
 echo ""
 echo "✅ Pipeline exécutée avec succès!"
+
+
+

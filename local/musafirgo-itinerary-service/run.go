@@ -58,3 +58,6 @@ func main() {
 	fmt.Println("")
 	fmt.Println("✅ Pipeline exécutée avec succès!")
 }
+
+
+

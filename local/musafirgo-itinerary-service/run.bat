@@ -40,3 +40,6 @@ musafirgo-pipeline.exe
 echo.
 echo ✅ Pipeline exécutée avec succès!
 pause
+
+
+

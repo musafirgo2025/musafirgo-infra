@@ -1,0 +1,1328 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MusafirGO Pipeline Report</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 15px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
+        .header h1 { margin: 0; font-size: 2.5em; font-weight: 300; }
+        .header p { margin: 10px 0 0 0; opacity: 0.9; font-size: 1.1em; }
+        .content { padding: 30px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .card { background: #f8f9fa; border-radius: 10px; padding: 20px; border-left: 4px solid #667eea; }
+        .card h3 { margin: 0 0 15px 0; color: #333; font-size: 1.3em; }
+        .stat { display: flex; justify-content: space-between; margin: 10px 0; padding: 8px 0; border-bottom: 1px solid #eee; }
+        .stat:last-child { border-bottom: none; }
+        .stat-label { font-weight: 500; color: #666; }
+        .stat-value { font-weight: 600; color: #333; }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .warning { color: #ffc107; }
+        .progress-bar { width: 100%; height: 20px; background: #e9ecef; border-radius: 10px; overflow: hidden; margin: 10px 0; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #28a745, #20c997); transition: width 0.3s ease; }
+        .progress-fill.warning { background: linear-gradient(90deg, #ffc107, #fd7e14); }
+        .progress-fill.error { background: linear-gradient(90deg, #dc3545, #e83e8c); }
+        .progress-text { text-align: center; font-weight: 600; color: #333; margin-top: 5px; }
+        .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.9em; font-weight: 500; }
+        .status-success { background: #d4edda; color: #155724; }
+        .status-error { background: #f8d7da; color: #721c24; }
+        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; border-top: 1px solid #eee; }
+        .chart-container { margin: 20px 0; }
+        .bar-chart { display: flex; align-items: end; height: 200px; gap: 10px; }
+        .bar { flex: 1; background: linear-gradient(180deg, #667eea, #764ba2); border-radius: 4px 4px 0 0; position: relative; }
+        .bar-label { text-align: center; margin-top: 10px; font-size: 0.9em; color: #666; }
+                    .bar-value { position: absolute; top: -25px; left: 50%; transform: translateX(-50%); font-weight: 600; color: #333; }
+            
+             
+            .table-controls { 
+                display: flex; 
+                gap: 15px; 
+                margin: 15px 0; 
+                align-items: center;
+                flex-wrap: wrap;
+            }
+            .search-input { 
+                flex: 1; 
+                min-width: 200px;
+                padding: 8px 12px; 
+                border: 2px solid #ddd; 
+                border-radius: 6px; 
+                font-size: 14px;
+                transition: border-color 0.2s ease;
+            }
+            .search-input:focus { 
+                outline: none; 
+                border-color: #007bff; 
+                box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+            }
+            .status-filter { 
+                padding: 8px 12px; 
+                border: 2px solid #ddd; 
+                border-radius: 6px; 
+                font-size: 14px;
+                background: white;
+                cursor: pointer;
+            }
+            .table-container { 
+                max-height: 500px; 
+                overflow: auto; 
+                margin: 15px 0;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+            }
+            .endpoints-table { 
+                width: 100%; 
+                border-collapse: collapse; 
+                font-size: 13px;
+                background: white;
+            }
+            .endpoints-table th { 
+                background: #f8f9fa; 
+                padding: 12px 8px; 
+                text-align: left; 
+                font-weight: 600; 
+                color: #495057;
+                border-bottom: 2px solid #dee2e6;
+                position: sticky;
+                top: 0;
+                cursor: pointer;
+                user-select: none;
+                transition: background-color 0.2s ease;
+            }
+            .endpoints-table th:hover { 
+                background: #e9ecef; 
+            }
+            .endpoints-table td { 
+                padding: 10px 8px; 
+                border-bottom: 1px solid #dee2e6; 
+                vertical-align: top;
+            }
+            .endpoint-row:hover { 
+                background: #f8f9fa; 
+            }
+            .endpoint-row.success { 
+                background: #d4edda; 
+            }
+            .endpoint-row.error { 
+                background: #f8d7da; 
+            }
+            .endpoint-number { 
+                font-weight: 600; 
+                color: #666; 
+                text-align: center;
+                width: 50px;
+            }
+            .endpoint-method { 
+                font-family: 'Courier New', monospace; 
+                font-weight: 600;
+                color: #007bff;
+                width: 80px;
+            }
+            .endpoint-url { 
+                font-family: 'Courier New', monospace; 
+                word-break: break-all;
+                max-width: 300px;
+            }
+            .url-link { 
+                color: #007bff; 
+                text-decoration: none; 
+                font-weight: 500;
+                transition: all 0.2s ease;
+                display: inline-block;
+                padding: 2px 4px;
+                border-radius: 3px;
+            }
+            .url-link:hover { 
+                color: #0056b3; 
+                text-decoration: underline; 
+                background: rgba(0, 123, 255, 0.1);
+                transform: translateY(-1px);
+            }
+            .url-link:visited { 
+                color: #6f42c1; 
+            }
+            .link-icon { 
+                font-size: 10px; 
+                margin-left: 4px; 
+                opacity: 0.7;
+                transition: opacity 0.2s ease;
+            }
+            .url-link:hover .link-icon { 
+                opacity: 1; 
+            }
+            .endpoint-status { 
+                font-weight: 600; 
+                text-align: center;
+                width: 100px;
+            }
+            .endpoint-time { 
+                font-family: 'Courier New', monospace; 
+                text-align: right;
+                width: 80px;
+                color: #666;
+            }
+            .endpoint-expected, .endpoint-received { 
+                font-family: 'Courier New', monospace; 
+                text-align: center;
+                width: 80px;
+            }
+            .sort-arrow { 
+                font-size: 12px; 
+                color: #999; 
+                margin-left: 5px;
+            }
+            .table-info { 
+                margin-top: 10px; 
+                font-size: 12px; 
+                color: #666; 
+                text-align: center;
+            }
+        </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 MusafirGO Pipeline Report</h1>
+            <p>Rapport généré le 2025-09-05 20:07:26 - Durée: 0.00s</p>
+        </div>
+        
+        <div class="content">
+            
+            <div class="grid">
+                <div class="card">
+                    <h3>📊 Résumé Global</h3>
+                    <div class="stat">
+                        <span class="stat-label">Statut</span>
+                        <span class="stat-value error">
+                            ❌ ÉCHEC
+                        </span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Début</span>
+                        <span class="stat-value">2025-09-05 20:07:26</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Fin</span>
+                        <span class="stat-value">0001-01-01 00:00:00</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Durée totale</span>
+                        <span class="stat-value">0.00s</span>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3>🧪 Tests API</h3>
+                    <div class="stat">
+                        <span class="stat-label">Total</span>
+                        <span class="stat-value">51</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Réussis</span>
+                        <span class="stat-value success">29</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Échoués</span>
+                        <span class="stat-value error">22</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Taux de réussite</span>
+                        <span class="stat-value warning">
+                            56.9%
+                        </span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill warning" 
+                             style="width: 56.9%"></div>
+                    </div>
+                    <div class="progress-text">56.9% de réussite</div>
+                </div>
+                
+                <div class="card">
+                    <h3>⚡ Performance</h3>
+                    <div class="stat">
+                        <span class="stat-label">Health Check</span>
+                        <span class="stat-value">5.0ms</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">List Itineraries</span>
+                        <span class="stat-value">17.0ms</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Search by City</span>
+                        <span class="stat-value">3.0ms</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Swagger UI</span>
+                        <span class="stat-value">10.0ms</span>
+                    </div>
+                </div>
+            </div>
+            
+            
+            <div class="grid">
+                <div class="card">
+                    <h3>📈 Résultats des Tests API</h3>
+                    <div class="chart-container">
+                        <div class="bar-chart">
+                            <div class="bar" style="height: 48px;">
+                                <div class="bar-value">29</div>
+                            </div>
+                            <div class="bar" style="height: 32px;">
+                                <div class="bar-value">22</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <div class="bar-label" style="flex: 1; text-align: center; color: #28a745;">Réussis</div>
+                            <div class="bar-label" style="flex: 1; text-align: center; color: #dc3545;">Échoués</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3>⚡ Performance des Endpoints</h3>
+                    <div class="chart-container">
+                        <div class="bar-chart">
+                            <div class="bar" style="height: 30px;">
+                                <div class="bar-value">5ms</div>
+                            </div>
+                            <div class="bar" style="height: 160px;">
+                                <div class="bar-value">17ms</div>
+                            </div>
+                            <div class="bar" style="height: 60px;">
+                                <div class="bar-value">3ms</div>
+                            </div>
+                            <div class="bar" style="height: 80px;">
+                                <div class="bar-value">10ms</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <div class="bar-label" style="flex: 1; text-align: center;">Health</div>
+                            <div class="bar-label" style="flex: 1; text-align: center;">List</div>
+                            <div class="bar-label" style="flex: 1; text-align: center;">Search</div>
+                            <div class="bar-label" style="flex: 1; text-align: center;">Swagger</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3>⏱️ Durée des Étapes</h3>
+                    <div class="chart-container">
+                        
+                        <div class="stat">
+                            <span class="stat-label">APITests</span>
+                            <span class="stat-value">
+                                <span class="status-badge status-success">
+                                    ✅ 0.68s
+                                </span>
+                            </span>
+                        </div>
+                        
+                        <div class="stat">
+                            <span class="stat-label">CheckPrerequisites</span>
+                            <span class="stat-value">
+                                <span class="status-badge status-success">
+                                    ✅ 0.22s
+                                </span>
+                            </span>
+                        </div>
+                        
+                        <div class="stat">
+                            <span class="stat-label">CleanupOldReports</span>
+                            <span class="stat-value">
+                                <span class="status-badge status-success">
+                                    ✅ 0.00s
+                                </span>
+                            </span>
+                        </div>
+                        
+                        <div class="stat">
+                            <span class="stat-label">DisplayDetailedResults</span>
+                            <span class="stat-value">
+                                <span class="status-badge status-success">
+                                    ✅ 0.00s
+                                </span>
+                            </span>
+                        </div>
+                        
+                        <div class="stat">
+                            <span class="stat-label">HealthChecks</span>
+                            <span class="stat-value">
+                                <span class="status-badge status-success">
+                                    ✅ 0.01s
+                                </span>
+                            </span>
+                        </div>
+                        
+                        <div class="stat">
+                            <span class="stat-label">InitializeDatabase</span>
+                            <span class="stat-value">
+                                <span class="status-badge status-success">
+                                    ✅ 0.30s
+                                </span>
+                            </span>
+                        </div>
+                        
+                        <div class="stat">
+                            <span class="stat-label">LoadTestData</span>
+                            <span class="stat-value">
+                                <span class="status-badge status-success">
+                                    ✅ 0.12s
+                                </span>
+                            </span>
+                        </div>
+                        
+                        <div class="stat">
+                            <span class="stat-label">PerformanceTests</span>
+                            <span class="stat-value">
+                                <span class="status-badge status-success">
+                                    ✅ 0.31s
+                                </span>
+                            </span>
+                        </div>
+                        
+                    </div>
+                </div>
+            </div>
+            
+            
+            <div class="card">
+                <h3>📋 Tableau des Endpoints Testés</h3>
+                <div class="table-controls">
+                    <input type="text" id="searchInput" placeholder="🔍 Rechercher un endpoint..." class="search-input">
+                    <select id="statusFilter" class="status-filter">
+                        <option value="">Tous les statuts</option>
+                        <option value="PASSED">✅ Réussis</option>
+                        <option value="FAILED">❌ Échoués</option>
+                    </select>
+                </div>
+                <div class="table-container">
+                    <table id="endpointsTable" class="endpoints-table">
+                        <thead>
+                            <tr>
+                                <th onclick="sortTable(0)"># <span class="sort-arrow">↕</span></th>
+                                <th onclick="sortTable(1)">Méthode <span class="sort-arrow">↕</span></th>
+                                <th onclick="sortTable(2)">URL <span class="sort-arrow">↕</span></th>
+                                <th onclick="sortTable(3)">Statut <span class="sort-arrow">↕</span></th>
+                                <th onclick="sortTable(4)">Temps (ms) <span class="sort-arrow">↕</span></th>
+                                <th onclick="sortTable(5)">Code Attendu <span class="sort-arrow">↕</span></th>
+                                <th onclick="sortTable(6)">Code Reçu <span class="sort-arrow">↕</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">1</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/itineraries" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/itineraries
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">16.3834ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">2</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/itineraries?city=Casablanca" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/itineraries?city=Casablanca
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">8.2587ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">3</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/itineraries?from=2024-01-01&amp;to=2024-12-31" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/itineraries?from=2024-01-01&amp;to=2024-12-31
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">22.1846ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">4</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/itineraries?page=0&amp;size=10" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/itineraries?page=0&amp;size=10
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">13.4008ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">5</td>
+                                <td class="endpoint-method">POST</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/itineraries" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/itineraries
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">24.7277ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">6</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">17.2368ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">7</td>
+                                <td class="endpoint-method">PUT</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">37.054ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">8</td>
+                                <td class="endpoint-method">DELETE</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">14.2755ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row error">
+                                <td class="endpoint-number">9</td>
+                                <td class="endpoint-method">POST</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/days/1/items" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/days/1/items
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">❌ FAILED</td>
+                                <td class="endpoint-time">-</td>
+                                <td class="endpoint-expected">200</td>
+                                <td class="endpoint-received">500</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row error">
+                                <td class="endpoint-number">10</td>
+                                <td class="endpoint-method">DELETE</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/days/1/items/0" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/days/1/items/0
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">❌ FAILED</td>
+                                <td class="endpoint-time">-</td>
+                                <td class="endpoint-expected">200</td>
+                                <td class="endpoint-received">500</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row error">
+                                <td class="endpoint-number">11</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/itineraries/00000000-0000-0000-0000-000000000000" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/itineraries/00000000-0000-0000-0000-000000000000
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">❌ FAILED</td>
+                                <td class="endpoint-time">-</td>
+                                <td class="endpoint-expected">404</td>
+                                <td class="endpoint-received">500</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row error">
+                                <td class="endpoint-number">12</td>
+                                <td class="endpoint-method">PUT</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/itineraries/00000000-0000-0000-0000-000000000000" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/itineraries/00000000-0000-0000-0000-000000000000
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">❌ FAILED</td>
+                                <td class="endpoint-time">-</td>
+                                <td class="endpoint-expected">404</td>
+                                <td class="endpoint-received">400</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row error">
+                                <td class="endpoint-number">13</td>
+                                <td class="endpoint-method">DELETE</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/itineraries/00000000-0000-0000-0000-000000000000" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/itineraries/00000000-0000-0000-0000-000000000000
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">❌ FAILED</td>
+                                <td class="endpoint-time">-</td>
+                                <td class="endpoint-expected">404</td>
+                                <td class="endpoint-received">500</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row error">
+                                <td class="endpoint-number">14</td>
+                                <td class="endpoint-method">POST</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/itineraries/00000000-0000-0000-0000-000000000000/days/1/items" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/itineraries/00000000-0000-0000-0000-000000000000/days/1/items
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">❌ FAILED</td>
+                                <td class="endpoint-time">-</td>
+                                <td class="endpoint-expected">404</td>
+                                <td class="endpoint-received">500</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row error">
+                                <td class="endpoint-number">15</td>
+                                <td class="endpoint-method">DELETE</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/itineraries/00000000-0000-0000-0000-000000000000/days/1/items/0" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/itineraries/00000000-0000-0000-0000-000000000000/days/1/items/0
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">❌ FAILED</td>
+                                <td class="endpoint-time">-</td>
+                                <td class="endpoint-expected">404</td>
+                                <td class="endpoint-received">500</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">16</td>
+                                <td class="endpoint-method">POST</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/itineraries" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/itineraries
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">6.9255ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row error">
+                                <td class="endpoint-number">17</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/itineraries?page=-1&amp;size=0" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/itineraries?page=-1&amp;size=0
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">❌ FAILED</td>
+                                <td class="endpoint-time">-</td>
+                                <td class="endpoint-expected">400</td>
+                                <td class="endpoint-received">200</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row error">
+                                <td class="endpoint-number">18</td>
+                                <td class="endpoint-method">POST</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/v1/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/media" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/v1/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/media
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">❌ FAILED</td>
+                                <td class="endpoint-time">-</td>
+                                <td class="endpoint-expected">201</td>
+                                <td class="endpoint-received">415</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">19</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/v1/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/media" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/v1/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/media
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">10.8923ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">20</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/v1/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/media/active" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/v1/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/media/active
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">7.587ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">21</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/v1/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/media/paged?page=0&amp;size=10" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/v1/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/media/paged?page=0&amp;size=10
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">9.0797ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row error">
+                                <td class="endpoint-number">22</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/v1/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/media/" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/v1/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/media/
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">❌ FAILED</td>
+                                <td class="endpoint-time">-</td>
+                                <td class="endpoint-expected">200</td>
+                                <td class="endpoint-received">404</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row error">
+                                <td class="endpoint-number">23</td>
+                                <td class="endpoint-method">POST</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/v1/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/media//sas?expirationMinutes=60" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/v1/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/media//sas?expirationMinutes=60
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">❌ FAILED</td>
+                                <td class="endpoint-time">-</td>
+                                <td class="endpoint-expected">200</td>
+                                <td class="endpoint-received">400</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row error">
+                                <td class="endpoint-number">24</td>
+                                <td class="endpoint-method">DELETE</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/v1/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/media/" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/v1/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/media/
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">❌ FAILED</td>
+                                <td class="endpoint-time">-</td>
+                                <td class="endpoint-expected">204</td>
+                                <td class="endpoint-received">404</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">25</td>
+                                <td class="endpoint-method">DELETE</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/v1/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/media" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/v1/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/media
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">19.5249ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row error">
+                                <td class="endpoint-number">26</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/v1/itineraries/00000000-0000-0000-0000-000000000000/media" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/v1/itineraries/00000000-0000-0000-0000-000000000000/media
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">❌ FAILED</td>
+                                <td class="endpoint-time">-</td>
+                                <td class="endpoint-expected">404</td>
+                                <td class="endpoint-received">200</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row error">
+                                <td class="endpoint-number">27</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/v1/itineraries/00000000-0000-0000-0000-000000000000/media/active" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/v1/itineraries/00000000-0000-0000-0000-000000000000/media/active
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">❌ FAILED</td>
+                                <td class="endpoint-time">-</td>
+                                <td class="endpoint-expected">404</td>
+                                <td class="endpoint-received">200</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row error">
+                                <td class="endpoint-number">28</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/v1/itineraries/00000000-0000-0000-0000-000000000000/media/paged?page=0&amp;size=10" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/v1/itineraries/00000000-0000-0000-0000-000000000000/media/paged?page=0&amp;size=10
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">❌ FAILED</td>
+                                <td class="endpoint-time">-</td>
+                                <td class="endpoint-expected">404</td>
+                                <td class="endpoint-received">200</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row error">
+                                <td class="endpoint-number">29</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/v1/itineraries/00000000-0000-0000-0000-000000000000/media/123e4567-e89b-12d3-a456-426614174000" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/v1/itineraries/00000000-0000-0000-0000-000000000000/media/123e4567-e89b-12d3-a456-426614174000
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">❌ FAILED</td>
+                                <td class="endpoint-time">-</td>
+                                <td class="endpoint-expected">404</td>
+                                <td class="endpoint-received">400</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row error">
+                                <td class="endpoint-number">30</td>
+                                <td class="endpoint-method">POST</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/v1/itineraries/00000000-0000-0000-0000-000000000000/media/123e4567-e89b-12d3-a456-426614174000/sas?expirationMinutes=60" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/v1/itineraries/00000000-0000-0000-0000-000000000000/media/123e4567-e89b-12d3-a456-426614174000/sas?expirationMinutes=60
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">❌ FAILED</td>
+                                <td class="endpoint-time">-</td>
+                                <td class="endpoint-expected">404</td>
+                                <td class="endpoint-received">400</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row error">
+                                <td class="endpoint-number">31</td>
+                                <td class="endpoint-method">DELETE</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/v1/itineraries/00000000-0000-0000-0000-000000000000/media/123e4567-e89b-12d3-a456-426614174000" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/v1/itineraries/00000000-0000-0000-0000-000000000000/media/123e4567-e89b-12d3-a456-426614174000
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">❌ FAILED</td>
+                                <td class="endpoint-time">-</td>
+                                <td class="endpoint-expected">404</td>
+                                <td class="endpoint-received">400</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row error">
+                                <td class="endpoint-number">32</td>
+                                <td class="endpoint-method">DELETE</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/v1/itineraries/00000000-0000-0000-0000-000000000000/media" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/v1/itineraries/00000000-0000-0000-0000-000000000000/media
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">❌ FAILED</td>
+                                <td class="endpoint-time">-</td>
+                                <td class="endpoint-expected">404</td>
+                                <td class="endpoint-received">204</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row error">
+                                <td class="endpoint-number">33</td>
+                                <td class="endpoint-method">POST</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/v1/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/media" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/v1/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/media
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">❌ FAILED</td>
+                                <td class="endpoint-time">-</td>
+                                <td class="endpoint-expected">400</td>
+                                <td class="endpoint-received">415</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">34</td>
+                                <td class="endpoint-method">POST</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/v1/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/media//sas?expirationMinutes=0" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/v1/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/media//sas?expirationMinutes=0
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">5.561ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">35</td>
+                                <td class="endpoint-method">POST</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/api/v1/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/media//sas?expirationMinutes=2000" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /api/v1/itineraries/6040cfd9-730f-4ca4-b1f9-7159e3714815/media//sas?expirationMinutes=2000
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">6.2873ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">36</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/actuator" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /actuator
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">4.0263ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">37</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/actuator/health" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /actuator/health
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">10.5843ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row error">
+                                <td class="endpoint-number">38</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/actuator/health/db" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /actuator/health/db
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">❌ FAILED</td>
+                                <td class="endpoint-time">-</td>
+                                <td class="endpoint-expected">200</td>
+                                <td class="endpoint-received">404</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row error">
+                                <td class="endpoint-number">39</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/actuator/health/redis" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /actuator/health/redis
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">❌ FAILED</td>
+                                <td class="endpoint-time">-</td>
+                                <td class="endpoint-expected">200</td>
+                                <td class="endpoint-received">404</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">40</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/actuator/info" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /actuator/info
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">1.8414ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">41</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/actuator/metrics" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /actuator/metrics
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">1.5401ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">42</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/actuator/metrics/jvm.memory.used" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /actuator/metrics/jvm.memory.used
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">10.0601ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">43</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/actuator/health/invalid-component" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /actuator/health/invalid-component
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">4.1672ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">44</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/actuator/metrics/non.existent.metric" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /actuator/metrics/non.existent.metric
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">2.0263ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">45</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/actuator/invalid-endpoint" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /actuator/invalid-endpoint
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">4.5328ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">46</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/swagger-ui.html" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /swagger-ui.html
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">18.7319ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">47</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/v3/api-docs" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /v3/api-docs
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">9.9124ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">48</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/swagger-ui/index.html" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /swagger-ui/index.html
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">7.7019ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">49</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/swagger-ui/invalid-path" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /swagger-ui/invalid-path
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">8.2422ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">50</td>
+                                <td class="endpoint-method">GET</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/v3/api-docs/invalid-path" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /v3/api-docs/invalid-path
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">7.3938ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                            <tr class="endpoint-row success">
+                                <td class="endpoint-number">51</td>
+                                <td class="endpoint-method">POST</td>
+                                <td class="endpoint-url">
+                                    <a href="http://localhost:8080/swagger-ui.html" target="_blank" class="url-link" title="Cliquer pour tester cet endpoint">
+                                        /swagger-ui.html
+                                        <span class="link-icon">🔗</span>
+                                    </a>
+                                </td>
+                                <td class="endpoint-status">✅ PASSED</td>
+                                <td class="endpoint-time">8.2372ms</td>
+                                <td class="endpoint-expected">-</td>
+                                <td class="endpoint-received">-</td>
+                            </tr>
+                            
+                        </tbody>
+                    </table>
+                </div>
+                <div class="table-info">
+                    <span id="tableInfo">Affichage de 51 endpoints</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Généré par MusafirGO Pipeline Go - 0001-01-01 00:00:00</p>
+        </div>
+    </div>
+    
+    <script>
+        
+        let currentSortColumn = -1;
+        let currentSortDirection = 'asc';
+        
+        
+        function sortTable(columnIndex) {
+            const table = document.getElementById('endpointsTable');
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            
+            if (currentSortColumn === columnIndex) {
+                currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSortDirection = 'asc';
+                currentSortColumn = columnIndex;
+            }
+            
+            
+            rows.sort((a, b) => {
+                const aValue = a.cells[columnIndex].textContent.trim();
+                const bValue = b.cells[columnIndex].textContent.trim();
+                
+                
+                if (columnIndex === 0 || columnIndex === 4) { 
+                    const aNum = parseFloat(aValue) || 0;
+                    const bNum = parseFloat(bValue) || 0;
+                    return currentSortDirection === 'asc' ? aNum - bNum : bNum - aNum;
+                }
+                
+                
+                return currentSortDirection === 'asc' 
+                    ? aValue.localeCompare(bValue)
+                    : bValue.localeCompare(aValue);
+            });
+            
+            
+            rows.forEach(row => tbody.appendChild(row));
+            
+            
+            updateSortArrows(columnIndex);
+        }
+        
+        
+        function updateSortArrows(activeColumn) {
+            const headers = document.querySelectorAll('th');
+            headers.forEach((header, index) => {
+                const arrow = header.querySelector('.sort-arrow');
+                if (index === activeColumn) {
+                    arrow.textContent = currentSortDirection === 'asc' ? '↑' : '↓';
+                } else {
+                    arrow.textContent = '↕';
+                }
+            });
+        }
+        
+        
+        function filterTable() {
+            const searchInput = document.getElementById('searchInput');
+            const statusFilter = document.getElementById('statusFilter');
+            const table = document.getElementById('endpointsTable');
+            const rows = table.querySelectorAll('tbody tr');
+            const searchTerm = searchInput.value.toLowerCase();
+            const statusFilterValue = statusFilter.value;
+            
+            let visibleCount = 0;
+            
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                const method = cells[1].textContent.toLowerCase();
+                const url = cells[2].textContent.toLowerCase();
+                const status = cells[3].textContent.toLowerCase();
+                
+                
+                const matchesSearch = searchTerm === '' || 
+                    method.includes(searchTerm) || 
+                    url.includes(searchTerm) || 
+                    status.includes(searchTerm);
+                
+                
+                const matchesStatus = statusFilterValue === '' || 
+                    (statusFilterValue === 'PASSED' && status.includes('passed')) ||
+                    (statusFilterValue === 'FAILED' && status.includes('failed'));
+                
+                
+                if (matchesSearch && matchesStatus) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            
+            document.getElementById('tableInfo').textContent = 
+                'Affichage de ' + visibleCount + ' endpoints sur ' + rows.length;
+        }
+        
+        
+        function handleLinkClick(event) {
+            const link = event.target.closest('.url-link');
+            if (link) {
+                
+                link.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    link.style.transform = '';
+                }, 150);
+                
+                
+                console.log('Testing endpoint:', link.href);
+            }
+        }
+        
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('searchInput');
+            const statusFilter = document.getElementById('statusFilter');
+            const table = document.getElementById('endpointsTable');
+            
+            searchInput.addEventListener('input', filterTable);
+            statusFilter.addEventListener('change', filterTable);
+            
+            
+            table.addEventListener('click', handleLinkClick);
+            
+            
+            filterTable();
+        });
+    </script>
+</body>
+</html>
