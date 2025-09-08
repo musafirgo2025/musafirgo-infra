@@ -1162,6 +1162,160 @@ func (p *MusafirGoPipeline) GenerateHTMLReport() bool {
                 color: #666; 
                 text-align: center;
             }
+            
+            /* Styles pour la pipeline visuelle style Jenkins/GitLab */
+            .pipeline-visual {
+                margin: 20px 0;
+                overflow-x: auto;
+                padding: 20px 0;
+            }
+            .pipeline-flow {
+                display: flex;
+                align-items: center;
+                min-width: max-content;
+                gap: 0;
+            }
+            .pipeline-stage {
+                background: white;
+                border: 2px solid #e9ecef;
+                border-radius: 8px;
+                padding: 15px;
+                min-width: 200px;
+                max-width: 250px;
+                position: relative;
+                transition: all 0.3s ease;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+            .pipeline-stage:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            }
+            .pipeline-stage.stage-success {
+                border-color: #28a745;
+                background: linear-gradient(135deg, #d4edda 0%, #ffffff 100%);
+            }
+            .pipeline-stage.stage-error {
+                border-color: #dc3545;
+                background: linear-gradient(135deg, #f8d7da 0%, #ffffff 100%);
+            }
+            .stage-container {
+                display: flex;
+                align-items: flex-start;
+                gap: 12px;
+            }
+            .stage-icon {
+                flex-shrink: 0;
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: bold;
+                font-size: 16px;
+            }
+            .stage-success .stage-icon {
+                background: #28a745;
+                color: white;
+            }
+            .stage-error .stage-icon {
+                background: #dc3545;
+                color: white;
+            }
+            .icon-success {
+                color: white;
+            }
+            .icon-error {
+                color: white;
+            }
+            .stage-content {
+                flex: 1;
+                min-width: 0;
+            }
+            .stage-title {
+                font-weight: 600;
+                font-size: 14px;
+                color: #333;
+                margin-bottom: 4px;
+                word-break: break-word;
+            }
+            .stage-description {
+                font-size: 12px;
+                color: #666;
+                line-height: 1.3;
+                margin-bottom: 8px;
+                font-style: italic;
+            }
+            .stage-meta {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 8px;
+            }
+            .stage-duration {
+                font-size: 11px;
+                color: #666;
+                font-weight: 500;
+            }
+            .stage-status {
+                font-size: 11px;
+                font-weight: 600;
+                padding: 2px 6px;
+                border-radius: 3px;
+            }
+            .stage-status.status-success {
+                color: #155724;
+                background: #d4edda;
+            }
+            .stage-status.status-error {
+                color: #721c24;
+                background: #f8d7da;
+            }
+            .stage-error {
+                background: #f8d7da;
+                color: #721c24;
+                padding: 8px;
+                border-radius: 4px;
+                margin-top: 8px;
+                font-size: 11px;
+                border-left: 3px solid #dc3545;
+            }
+            .stage-result {
+                background: #e9ecef;
+                color: #495057;
+                padding: 8px;
+                border-radius: 4px;
+                margin-top: 8px;
+                font-size: 11px;
+                border-left: 3px solid #6c757d;
+            }
+            .pipeline-connector {
+                display: flex;
+                align-items: center;
+                margin: 0 10px;
+                position: relative;
+            }
+            .connector-line {
+                width: 40px;
+                height: 2px;
+                background: #dee2e6;
+                position: relative;
+            }
+            .connector-arrow {
+                position: absolute;
+                right: -8px;
+                top: 50%;
+                transform: translateY(-50%);
+                color: #6c757d;
+                font-size: 16px;
+                font-weight: bold;
+            }
+            .pipeline-stage.stage-success + .pipeline-connector .connector-line {
+                background: #28a745;
+            }
+            .pipeline-stage.stage-error + .pipeline-connector .connector-line {
+                background: #dc3545;
+            }
         </style>
 </head>
 <body>
@@ -1302,6 +1456,70 @@ func (p *MusafirGoPipeline) GenerateHTMLReport() bool {
                                 </span>
                             </span>
                         </div>
+                        {{end}}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section pipeline visuelle style Jenkins/GitLab -->
+            <div class="card">
+                <h3>🚀 Pipeline Visuelle</h3>
+                <div class="pipeline-visual">
+                    <div class="pipeline-flow">
+                        {{$stepNames := list "CheckPrerequisites" "BuildApplicationImage" "InitializeDatabase" "LoadTestData" "HealthChecks" "APITests" "PerformanceTests" "ReloadTestData" "DisplayDetailedResults" "CleanupOldReports" "GenerateHTMLReport" "OpenReportInChrome"}}
+                        {{$index := 0}}
+                        {{range $stepName := $stepNames}}
+                        {{if hasStep $.Steps $stepName}}
+                        {{$step := getStep $.Steps $stepName}}
+                        {{$index = add $index 1}}
+                        <div class="pipeline-stage {{if $step.Success}}stage-success{{else}}stage-error{{end}}">
+                            <div class="stage-container">
+                                <div class="stage-icon">
+                                    {{if $step.Success}}
+                                        <div class="icon-success">✓</div>
+                                    {{else}}
+                                        <div class="icon-error">✗</div>
+                                    {{end}}
+                                </div>
+                                <div class="stage-content">
+                                    <div class="stage-title">{{$step.Name}}</div>
+                                    <div class="stage-description">{{getStepDescription $step.Name}}</div>
+                                    <div class="stage-meta">
+                                        <span class="stage-duration">{{printf "%.1f" $step.Duration}}s</span>
+                                        <span class="stage-status {{if $step.Success}}status-success{{else}}status-error{{end}}">
+                                            {{if $step.Success}}Réussi{{else}}Échoué{{end}}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            {{if $step.Error}}
+                            <div class="stage-error">
+                                <strong>Erreur :</strong> {{$step.Error}}
+                            </div>
+                            {{end}}
+                            {{if $step.Result}}
+                            <div class="stage-result">
+                                {{if eq $step.Name "APITests"}}
+                                    {{if $apiResult := $step.Result}}
+                                        <strong>Tests API :</strong> {{$apiResult.Passed}}/{{$apiResult.Total}} réussis ({{printf "%.1f" $apiResult.SuccessRate}}%)
+                                    {{end}}
+                                {{else if eq $step.Name "PerformanceTests"}}
+                                    {{if $perfResult := $step.Result}}
+                                        <strong>Performance :</strong> Temps moyen {{printf "%.1f" $perfResult.AverageTime}}ms
+                                    {{end}}
+                                {{else}}
+                                    <strong>Résultat :</strong> {{printf "%v" $step.Result}}
+                                {{end}}
+                            </div>
+                            {{end}}
+                        </div>
+                        {{if ne $index (len $stepNames)}}
+                        <div class="pipeline-connector">
+                            <div class="connector-line"></div>
+                            <div class="connector-arrow">→</div>
+                        </div>
+                        {{end}}
+                        {{end}}
                         {{end}}
                     </div>
                 </div>
@@ -1506,6 +1724,21 @@ func (p *MusafirGoPipeline) GenerateHTMLReport() bool {
 			}
 			return ""
 		},
+		"list": func(items ...string) []string {
+			return items
+		},
+		"getStep": func(steps map[string]Step, stepName string) Step {
+			step, exists := steps[stepName]
+			if !exists {
+				return Step{}
+			}
+			return step
+		},
+		"hasStep": func(steps map[string]Step, stepName string) bool {
+			_, exists := steps[stepName]
+			return exists
+		},
+		"getStepDescription": p.getStepDescription,
 	}
 
 	tmpl, err := template.New("report").Funcs(funcMap).Parse(htmlTemplate)
@@ -1552,6 +1785,29 @@ func (p *MusafirGoPipeline) getAPIResults() APITestResult {
 		SuccessRate: 60.0,
 		Details:     []string{"Tests API exécutés avec succès"},
 	}
+}
+
+// getStepDescription retourne une description détaillée pour chaque étape
+func (p *MusafirGoPipeline) getStepDescription(stepName string) string {
+	descriptions := map[string]string{
+		"CheckPrerequisites":     "Vérification des prérequis (Docker, Go, Docker Compose)",
+		"BuildApplicationImage":  "Construction de l'image Docker de l'application",
+		"InitializeDatabase":     "Initialisation de la base de données PostgreSQL",
+		"LoadTestData":           "Chargement des données de test dans la base",
+		"HealthChecks":           "Vérification de la santé des services",
+		"APITests":               "Exécution des tests API complets",
+		"PerformanceTests":       "Tests de performance des endpoints",
+		"ReloadTestData":         "Rechargement des données après tests destructifs",
+		"DisplayDetailedResults": "Affichage détaillé des résultats",
+		"CleanupOldReports":      "Nettoyage des anciens rapports",
+		"GenerateHTMLReport":     "Génération du rapport HTML",
+		"OpenReportInChrome":     "Ouverture du rapport dans Chrome",
+	}
+
+	if desc, exists := descriptions[stepName]; exists {
+		return desc
+	}
+	return "Étape de la pipeline"
 }
 
 // getPerformanceResults récupère les résultats de performance
